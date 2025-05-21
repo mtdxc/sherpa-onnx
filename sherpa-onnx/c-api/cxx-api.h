@@ -118,7 +118,6 @@ class SHERPA_ONNX_API MoveOnly {
   ~MoveOnly() { Destroy(); }
 
   MoveOnly(const MoveOnly &) = delete;
-
   MoveOnly &operator=(const MoveOnly &) = delete;
 
   MoveOnly(MoveOnly &&other) : p_(other.Release()) {}
@@ -129,9 +128,7 @@ class SHERPA_ONNX_API MoveOnly {
     }
 
     Destroy();
-
     p_ = other.Release();
-
     return *this;
   }
 
@@ -150,7 +147,6 @@ class SHERPA_ONNX_API MoveOnly {
     }
     // 子类必须实现Destroy(T*)方法，来释放资源
     static_cast<Derived *>(this)->Destroy(p_);
-
     p_ = nullptr;
   }
 
@@ -415,14 +411,12 @@ class SHERPA_ONNX_API OfflineTts
   int32_t NumSpeakers() const;
 
   // @param text A string containing words separated by spaces
-  // @param sid Speaker ID. Used only for multi-speaker models, e.g., models
-  //            trained using the VCTK dataset. It is not used for
-  //            single-speaker models, e.g., models trained using the ljspeech
-  //            dataset.
+  // @param sid Speaker ID. 
+  //        Used only for multi-speaker models, e.g., models trained using the VCTK dataset. 
+  //        It is not used for single-speaker models, e.g., models trained using the ljspeech dataset.
   // @param speed The speed for the generated speech. E.g., 2 means 2x faster.
   // @param callback If not NULL, it is called whenever config.max_num_sentences
-  //                 sentences have been processed. The callback is called in
-  //                 the current thread.
+  //        sentences have been processed. The callback is called in the current thread.
   GeneratedAudio Generate(const std::string &text, int32_t sid = 0,
                           float speed = 1.0,
                           OfflineTtsCallback callback = nullptr,
@@ -433,7 +427,7 @@ class SHERPA_ONNX_API OfflineTts
 };
 
 // ============================================================
-// For Keyword Spotter
+// For Keyword Spotter 唤醒词检测
 // ============================================================
 
 struct KeywordResult {
