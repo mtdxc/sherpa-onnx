@@ -3559,7 +3559,7 @@ SHERPA_ONNX_API void SherpaOnnxAudioTaggingFreeResults(
     const SherpaOnnxAudioEvent *const *p);
 
 // ============================================================
-// For punctuation
+// For punctuation 标点符号
 // ============================================================
 
 /**
@@ -3790,7 +3790,8 @@ typedef struct SherpaOnnxResampleOut {
  *         SherpaOnnxLinearResamplerResampleFree().
  */
 SHERPA_ONNX_API const SherpaOnnxResampleOut *SherpaOnnxLinearResamplerResample(
-    const SherpaOnnxLinearResampler *p, const float *input, int32_t input_dim,
+    const SherpaOnnxLinearResampler *p, 
+    const float *input, int32_t input_dim,
     int32_t flush);
 
 /**
@@ -3820,7 +3821,8 @@ SHERPA_ONNX_API int32_t SherpaOnnxLinearResamplerResampleGetOutputSampleRate(
     const SherpaOnnxLinearResampler *p);
 
 // =========================================================================
-// For offline speaker diarization (i.e., non-streaming speaker diarization)
+// For offline speaker diarization (i.e., non-streaming speaker diarization) 
+// 离线说话人分割
 // =========================================================================
 /** @brief Pyannote speaker-segmentation model configuration. */
 typedef struct SherpaOnnxOfflineSpeakerSegmentationPyannoteModelConfig {
@@ -4022,8 +4024,8 @@ typedef int32_t (*SherpaOnnxOfflineSpeakerDiarizationProgressCallbackNoArg)(
  */
 SHERPA_ONNX_API const SherpaOnnxOfflineSpeakerDiarizationResult *
 SherpaOnnxOfflineSpeakerDiarizationProcess(
-    const SherpaOnnxOfflineSpeakerDiarization *sd, const float *samples,
-    int32_t n);
+    const SherpaOnnxOfflineSpeakerDiarization *sd, 
+    const float *samples, int32_t n);
 
 /**
  * @brief Run offline speaker diarization with a progress callback.
@@ -4045,9 +4047,9 @@ SherpaOnnxOfflineSpeakerDiarizationProcess(
  */
 SHERPA_ONNX_API const SherpaOnnxOfflineSpeakerDiarizationResult *
 SherpaOnnxOfflineSpeakerDiarizationProcessWithCallback(
-    const SherpaOnnxOfflineSpeakerDiarization *sd, const float *samples,
-    int32_t n, SherpaOnnxOfflineSpeakerDiarizationProgressCallback callback,
-    void *arg);
+    const SherpaOnnxOfflineSpeakerDiarization *sd, 
+    const float *samples, int32_t n, 
+    SherpaOnnxOfflineSpeakerDiarizationProgressCallback callback, void *arg);
 
 /**
  * @brief Run offline speaker diarization with a progress callback that has no
@@ -4062,8 +4064,8 @@ SherpaOnnxOfflineSpeakerDiarizationProcessWithCallback(
  */
 SHERPA_ONNX_API const SherpaOnnxOfflineSpeakerDiarizationResult *
 SherpaOnnxOfflineSpeakerDiarizationProcessWithCallbackNoArg(
-    const SherpaOnnxOfflineSpeakerDiarization *sd, const float *samples,
-    int32_t n,
+    const SherpaOnnxOfflineSpeakerDiarization *sd, 
+    const float *samples, int32_t n,
     SherpaOnnxOfflineSpeakerDiarizationProgressCallbackNoArg callback);
 
 /**

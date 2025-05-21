@@ -299,7 +299,6 @@ class SHERPA_ONNX_API MoveOnly {
   ~MoveOnly() { Destroy(); }
 
   MoveOnly(const MoveOnly &) = delete;
-
   MoveOnly &operator=(const MoveOnly &) = delete;
 
   MoveOnly(MoveOnly &&other) : p_(other.Release()) {}
@@ -310,9 +309,7 @@ class SHERPA_ONNX_API MoveOnly {
     }
 
     Destroy();
-
     p_ = other.Release();
-
     return *this;
   }
 
@@ -333,7 +330,6 @@ class SHERPA_ONNX_API MoveOnly {
     }
 
     static_cast<Derived *>(this)->Destroy(p_);
-
     p_ = nullptr;
   }
 
@@ -1136,7 +1132,7 @@ class SHERPA_ONNX_API OfflineTts
 };
 
 // ============================================================
-// For Keyword Spotter
+// For Keyword Spotter 唤醒词检测
 // ============================================================
 
 /** @brief Current keyword spotting result copied into C++ containers. */
