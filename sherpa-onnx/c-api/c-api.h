@@ -366,6 +366,7 @@ SHERPA_ONNX_API void SherpaOnnxDestroyDisplay(const SherpaOnnxDisplay *display);
 SHERPA_ONNX_API void SherpaOnnxPrint(const SherpaOnnxDisplay *display,
                                      int32_t idx, const char *s);
 // ============================================================
+
 // For offline ASR (i.e., non-streaming ASR)
 // ============================================================
 
@@ -1412,7 +1413,7 @@ SHERPA_ONNX_API void SherpaOnnxAudioTaggingFreeResults(
     const SherpaOnnxAudioEvent *const *p);
 
 // ============================================================
-// For punctuation
+// For punctuation 标点符号
 // ============================================================
 
 SHERPA_ONNX_API typedef struct SherpaOnnxOfflinePunctuationModelConfig {
@@ -1516,7 +1517,8 @@ typedef struct SherpaOnnxResampleOut {
 // If this is the last segment, you can set flush to 1; otherwise, please
 // set flush to 0
 SHERPA_ONNX_API const SherpaOnnxResampleOut *SherpaOnnxLinearResamplerResample(
-    const SherpaOnnxLinearResampler *p, const float *input, int32_t input_dim,
+    const SherpaOnnxLinearResampler *p, 
+    const float *input, int32_t input_dim,
     int32_t flush);
 
 SHERPA_ONNX_API void SherpaOnnxLinearResamplerResampleFree(
@@ -1532,10 +1534,10 @@ SHERPA_ONNX_API int32_t SherpaOnnxLinearResamplerResampleGetOutputSampleRate(
 SHERPA_ONNX_API int32_t SherpaOnnxFileExists(const char *filename);
 
 // =========================================================================
-// For offline speaker diarization (i.e., non-streaming speaker diarization)
+// For offline speaker diarization (i.e., non-streaming speaker diarization) 
+// 离线说话人分割
 // =========================================================================
-SHERPA_ONNX_API typedef struct
-    SherpaOnnxOfflineSpeakerSegmentationPyannoteModelConfig {
+SHERPA_ONNX_API typedef struct SherpaOnnxOfflineSpeakerSegmentationPyannoteModelConfig {
   const char *model;
 } SherpaOnnxOfflineSpeakerSegmentationPyannoteModelConfig;
 
@@ -1634,21 +1636,21 @@ typedef int32_t (*SherpaOnnxOfflineSpeakerDiarizationProgressCallbackNoArg)(
 // to free the returned pointer to avoid memory leak.
 SHERPA_ONNX_API const SherpaOnnxOfflineSpeakerDiarizationResult *
 SherpaOnnxOfflineSpeakerDiarizationProcess(
-    const SherpaOnnxOfflineSpeakerDiarization *sd, const float *samples,
-    int32_t n);
+    const SherpaOnnxOfflineSpeakerDiarization *sd, 
+    const float *samples, int32_t n);
 
 // The user has to invoke SherpaOnnxOfflineSpeakerDiarizationDestroyResult()
 // to free the returned pointer to avoid memory leak.
 SHERPA_ONNX_API const SherpaOnnxOfflineSpeakerDiarizationResult *
 SherpaOnnxOfflineSpeakerDiarizationProcessWithCallback(
-    const SherpaOnnxOfflineSpeakerDiarization *sd, const float *samples,
-    int32_t n, SherpaOnnxOfflineSpeakerDiarizationProgressCallback callback,
-    void *arg);
+    const SherpaOnnxOfflineSpeakerDiarization *sd, 
+    const float *samples, int32_t n, 
+    SherpaOnnxOfflineSpeakerDiarizationProgressCallback callback, void *arg);
 
 SHERPA_ONNX_API const SherpaOnnxOfflineSpeakerDiarizationResult *
 SherpaOnnxOfflineSpeakerDiarizationProcessWithCallbackNoArg(
-    const SherpaOnnxOfflineSpeakerDiarization *sd, const float *samples,
-    int32_t n,
+    const SherpaOnnxOfflineSpeakerDiarization *sd, 
+    const float *samples, int32_t n,
     SherpaOnnxOfflineSpeakerDiarizationProgressCallbackNoArg callback);
 
 SHERPA_ONNX_API void SherpaOnnxOfflineSpeakerDiarizationDestroyResult(
