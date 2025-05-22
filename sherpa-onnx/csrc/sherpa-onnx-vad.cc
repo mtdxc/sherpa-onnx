@@ -41,9 +41,7 @@ input.wav should be 16kHz.
   config.Register(&po);
   po.Read(argc, argv);
   if (po.NumArgs() != 2) {
-    fprintf(
-        stderr,
-        "Please provide only 2 argument2: the input wav and the output wav\n");
+    fprintf(stderr, "Please provide only 2 argument2: the input wav and the output wav\n");
     po.PrintUsage();
     SHERPA_ONNX_EXIT(EXIT_FAILURE);
   }
@@ -93,8 +91,7 @@ input.wav should be 16kHz.
     while (!vad->Empty()) {
       const auto &segment = vad->Front();
       float start_time = segment.start / static_cast<float>(sampling_rate);
-      float end_time = start_time + segment.samples.size() /
-                                        static_cast<float>(sampling_rate);
+      float end_time = start_time + segment.samples.size() / static_cast<float>(sampling_rate);
 
       fprintf(stderr, "%.3f -- %.3f\n", start_time, end_time);
       samples_without_silence.insert(samples_without_silence.end(),
@@ -109,6 +106,5 @@ input.wav should be 16kHz.
                          samples_without_silence.size());
 
   fprintf(stderr, "Saved to %s\n", po.GetArg(2).c_str());
-
   return 0;
 }

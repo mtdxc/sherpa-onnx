@@ -2924,7 +2924,7 @@ SHERPA_ONNX_API void SherpaOnnxFreeMultiChannelWave(
     const SherpaOnnxMultiChannelWave *wave);
 
 // ============================================================
-// For spoken language identification
+// For spoken language identification 语言检测
 // ============================================================
 
 /**
@@ -3067,7 +3067,7 @@ SHERPA_ONNX_API void SherpaOnnxDestroySpokenLanguageIdentificationResult(
     const SherpaOnnxSpokenLanguageIdentificationResult *r);
 
 // ============================================================
-// For speaker embedding extraction
+// For speaker embedding extraction 特征提取，判断谁在说话
 // ============================================================
 /**
  * @brief Configuration for speaker embedding extraction.
@@ -3185,7 +3185,7 @@ SHERPA_ONNX_API const float *
 SherpaOnnxSpeakerEmbeddingExtractorComputeEmbedding(
     const SherpaOnnxSpeakerEmbeddingExtractor *p,
     const SherpaOnnxOnlineStream *s);
-
+// 释放特征数组
 /**
  * @brief Destroy an embedding vector returned by
  * SherpaOnnxSpeakerEmbeddingExtractorComputeEmbedding().
@@ -3198,7 +3198,7 @@ SHERPA_ONNX_API void SherpaOnnxSpeakerEmbeddingExtractorDestroyEmbedding(
 
 /**
  * @brief Opaque speaker embedding manager handle.
- *
+ * 特征管理器，提供特征和名字的映射和匹配
  * @see SherpaOnnxCreateSpeakerEmbeddingManager
  */
 typedef struct SherpaOnnxSpeakerEmbeddingManager

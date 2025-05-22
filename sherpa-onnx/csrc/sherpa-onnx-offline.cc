@@ -157,8 +157,7 @@ for a list of pre-trained models to download.
     std::string wav_filename = po.GetArg(i);
     int32_t sampling_rate = -1;
     bool is_ok = false;
-    std::vector<float> samples =
-        sherpa_onnx::ReadWave(wav_filename, &sampling_rate, &is_ok);
+    std::vector<float> samples = sherpa_onnx::ReadWave(wav_filename, &sampling_rate, &is_ok);
     if (!is_ok) {
       fprintf(stderr, "Failed to read '%s'\n", wav_filename.c_str());
       return -1;
@@ -184,9 +183,7 @@ for a list of pre-trained models to download.
   }
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
 
   fprintf(stderr, "num threads: %d\n", config.model_config.num_threads);
   fprintf(stderr, "decoding method: %s\n", config.decoding_method.c_str());

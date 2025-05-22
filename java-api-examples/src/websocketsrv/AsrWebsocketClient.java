@@ -36,10 +36,8 @@ public class AsrWebsocketClient extends WebSocketClient {
   public void onOpen(ServerHandshake handshakedata) {
 
     float[] floats = OnlineRecognizer.readWavFile(AsrWebsocketClient.wavPath);
-    ByteBuffer buffer =
-        ByteBuffer.allocate(4 * floats.length)
-            .order(ByteOrder.LITTLE_ENDIAN); // float is sizeof 4. allocate enough buffer
-
+    // float is sizeof 4. allocate enough buffer
+    ByteBuffer buffer = ByteBuffer.allocate(4 * floats.length).order(ByteOrder.LITTLE_ENDIAN);
     for (float f : floats) {
       buffer.putFloat(f);
     }
@@ -53,13 +51,11 @@ public class AsrWebsocketClient extends WebSocketClient {
 
   @Override
   public void onMessage(String message) {
-
     logger.info("received: " + message);
   }
 
   @Override
   public void onClose(int code, String reason, boolean remote) {
-
     logger.info(
         "Connection closed by "
             + (remote ? "remote peer" : "us")

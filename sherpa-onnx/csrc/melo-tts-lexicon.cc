@@ -51,14 +51,12 @@ class MeloTtsLexicon::Impl {
       : meta_data_(meta_data), debug_(debug) {
     {
       auto buf = ReadFile(mgr, tokens);
-
       std::istringstream is(std::string(buf.data(), buf.size()));
       InitTokens(is);
     }
 
     {
       auto buf = ReadFile(mgr, lexicon);
-
       std::istringstream is(std::string(buf.data(), buf.size()));
       InitLexicon(is);
     }

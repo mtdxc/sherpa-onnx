@@ -68,6 +68,7 @@ void main(List<String> arguments) async {
     ruleFars: ruleFars,
   );
 
+  final stopwatch = Stopwatch()..start();
   final tts = sherpa_onnx.OfflineTts(config);
   final genConfig = sherpa_onnx.OfflineTtsGenerationConfig(
     sid: sid,
@@ -76,6 +77,8 @@ void main(List<String> arguments) async {
   );
   final audio = tts.generateWithConfig(text: text, config: genConfig);
   tts.free();
+  stopwatch.stop();
+  print('Time elapsed: ${stopwatch.elapsedMilliseconds} ms, generated ${audio.samples.length/audio.sampleRate} second audio', );
 
   sherpa_onnx.writeWave(
     filename: outputWav,

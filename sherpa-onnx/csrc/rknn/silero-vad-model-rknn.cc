@@ -114,7 +114,6 @@ class SileroVadModelRknn::Impl {
       }
 
       triggered_ = true;
-
       return true;
     }
 
@@ -133,7 +132,6 @@ class SileroVadModelRknn::Impl {
     if ((prob > threshold) && !triggered_) {
       // start speaking
       triggered_ = true;
-
       return true;
     }
 

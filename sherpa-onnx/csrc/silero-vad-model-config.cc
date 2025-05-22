@@ -78,8 +78,7 @@ bool SileroVadModelConfig::Validate() const {
   if (min_silence_duration <= 0) {
     SHERPA_ONNX_LOGE(
         "Please use a larger value for --silero-vad-min-silence-duration. "
-        "Given: "
-        "%f",
+        "Given: %f",
         min_silence_duration);
     return false;
   }
@@ -87,8 +86,7 @@ bool SileroVadModelConfig::Validate() const {
   if (min_speech_duration <= 0) {
     SHERPA_ONNX_LOGE(
         "Please use a larger value for --silero-vad-min-speech-duration. "
-        "Given: "
-        "%f",
+        "Given: %f",
         min_speech_duration);
     return false;
   }
@@ -96,8 +94,7 @@ bool SileroVadModelConfig::Validate() const {
   if (max_speech_duration <= 0) {
     SHERPA_ONNX_LOGE(
         "Please use a larger value for --silero-vad-max-speech-duration. "
-        "Given: "
-        "%f",
+        "Given: %f",
         max_speech_duration);
     return false;
   }
