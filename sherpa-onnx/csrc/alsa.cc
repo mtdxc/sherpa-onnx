@@ -15,7 +15,7 @@
 #include "alsa/asoundlib.h"
 
 namespace sherpa_onnx {
-
+// 多通道变单通道，int16_t -> float
 void ToFloat(const std::vector<int16_t> &in, int32_t num_channels,
              std::vector<float> *out) {
   out->resize(in.size() / num_channels);
@@ -76,12 +76,12 @@ and if you want to select card 3 and device 0 on that card, please use:
     SHERPA_ONNX_EXIT(-1);
   }
 
-  // mono
+  // try mono
   err = snd_pcm_hw_params_set_channels(capture_handle_, hw_params, 1);
   if (err) {
     fprintf(stderr, "Failed to set number of channels to 1. %s\n",
             snd_strerror(err));
-
+    // try stereo
     err = snd_pcm_hw_params_set_channels(capture_handle_, hw_params, 2);
     if (err) {
       fprintf(stderr, "Failed to set number of channels to 2. %s\n",
@@ -90,8 +90,7 @@ and if you want to select card 3 and device 0 on that card, please use:
       SHERPA_ONNX_EXIT(-1);
     }
     actual_channel_count_ = 2;
-    fprintf(stderr,
-            "Channel count is set to 2. Will use only 1 channel of it.\n");
+    fprintf(stderr, "Channel count is set to 2. Will use only 1 channel of it.\n");
   }
 
   uint32_t actual_sample_rate = expected_sample_rate_;
@@ -109,10 +108,7 @@ and if you want to select card 3 and device 0 on that card, please use:
   if (actual_sample_rate_ != expected_sample_rate_) {
     fprintf(stderr, "Failed to set sample rate to %d\n", expected_sample_rate_);
     fprintf(stderr, "Current sample rate is %d\n", actual_sample_rate_);
-    fprintf(stderr,
-            "Creating a resampler:\n"
-            "   in_sample_rate: %d\n"
-            "   output_sample_rate: %d\n",
+    fprintf(stderr, "Creating a resampler %d->%d\n",
             actual_sample_rate_, expected_sample_rate_);
 
     float min_freq = std::min(actual_sample_rate_, expected_sample_rate_);
@@ -151,8 +147,7 @@ const std::vector<float> &Alsa::Read(int32_t num_samples) {
   if (count == -EPIPE) {
     static int32_t n = 0;
     if (++n > 5) {
-      fprintf(
-          stderr,
+      fprintf(stderr,
           "Too many overruns. It is very likely that the RTF on your board is "
           "larger than 1. Please use ./bin/sherpa-onnx to compute the RTF.\n");
       SHERPA_ONNX_EXIT(-1);
