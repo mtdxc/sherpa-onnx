@@ -716,4 +716,100 @@ int32_t LinearResampler::GetOutputSamplingRate() const {
   return SherpaOnnxLinearResamplerResampleGetOutputSampleRate(p_);
 }
 
+// SpeakerDiarization
+SpeakerDiarizationResult::SpeakerDiarizationResult(const SherpaOnnxOfflineSpeakerDiarizationResult *p)
+    : MoveOnly<SpeakerDiarizationResult,SherpaOnnxOfflineSpeakerDiarizationResult>(p) {}
+
+void SpeakerDiarizationResult::Destroy(const SherpaOnnxOfflineSpeakerDiarizationResult *p) const {
+  SherpaOnnxOfflineSpeakerDiarizationDestroyResult(p);
+}
+
+int32_t SpeakerDiarizationResult::GetNumSegments() const {
+  return SherpaOnnxOfflineSpeakerDiarizationResultGetNumSegments(p_);
+}
+
+int32_t SpeakerDiarizationResult::GetNumSpeakers() const {
+  return SherpaOnnxOfflineSpeakerDiarizationResultGetNumSpeakers(p_);
+}
+
+int32_t SpeakerDiarizationResult::SortByStartTime(
+    std::vector<OfflineSpeakerDiarizationSegment> &segs) const {
+  int32_t num_segments =
+      SherpaOnnxOfflineSpeakerDiarizationResultGetNumSegments(p_);
+  if (num_segments > 0) {
+    segs.resize(num_segments);
+    auto seg = SherpaOnnxOfflineSpeakerDiarizationResultSortByStartTime(p_);
+    for (int32_t i = 0; i < num_segments; i++) {
+      segs[i].start = seg[i].start;
+      segs[i].end = seg[i].end;
+      segs[i].speaker = seg[i].speaker;
+    }
+    SherpaOnnxOfflineSpeakerDiarizationDestroySegment(seg);
+  }
+  return num_segments;
+}
+
+void OfflineSpeakerDiarizationConfig::set(SherpaOnnxOfflineSpeakerDiarizationConfig &conf) const {
+  conf.segmentation.pyannote.model = segmentation.pyannote.model.c_str();
+  conf.segmentation.num_threads = segmentation.num_threads;
+  conf.segmentation.debug = segmentation.debug;
+  conf.segmentation.provider = segmentation.provider.c_str();
+  conf.embedding.model = embedding.model.c_str();
+  conf.embedding.num_threads = embedding.num_threads;
+  conf.embedding.debug = embedding.debug;
+  conf.embedding.provider = embedding.provider.c_str();
+  conf.clustering.num_clusters = clustering.num_clusters;
+  conf.clustering.threshold = clustering.threshold;
+  conf.min_duration_on = min_duration_on;
+  conf.min_duration_off = min_duration_off;
+}
+
+OfflineSpeakerDiarization OfflineSpeakerDiarization::Create(
+  const OfflineSpeakerDiarizationConfig &config) {
+  SherpaOnnxOfflineSpeakerDiarizationConfig conf;
+  config.set(conf);
+  return OfflineSpeakerDiarization(SherpaOnnxCreateOfflineSpeakerDiarization(&conf));
+}
+
+void OfflineSpeakerDiarization::Destroy(
+    const SherpaOnnxOfflineSpeakerDiarization *p) const {
+  SherpaOnnxDestroyOfflineSpeakerDiarization(p);
+}
+
+void OfflineSpeakerDiarization::setConfig(
+    const OfflineSpeakerDiarizationConfig &config) const {
+  SherpaOnnxOfflineSpeakerDiarizationConfig conf;
+  config.set(conf);
+  SherpaOnnxOfflineSpeakerDiarizationSetConfig(p_, &conf);
+}
+
+int32_t OfflineSpeakerDiarization::GetSampleRate() const {
+  return SherpaOnnxOfflineSpeakerDiarizationGetSampleRate(p_);
+}
+
+SpeakerDiarizationResult OfflineSpeakerDiarization::Process(
+    const float *samples, int32_t n) {
+  auto res = SherpaOnnxOfflineSpeakerDiarizationProcess(p_, samples, n);
+  return SpeakerDiarizationResult(res);
+}
+
+SpeakerDiarizationResult OfflineSpeakerDiarization::ProcessWithCallback(
+    const float *samples, int32_t n,
+    SherpaOnnxOfflineSpeakerDiarizationProgressCallback callback, void *arg) {
+  auto res = SherpaOnnxOfflineSpeakerDiarizationProcessWithCallback(
+      p_, samples, n, callback, arg);
+  return SpeakerDiarizationResult(res);
+}
+
+SpeakerDiarizationResult OfflineSpeakerDiarization::Process(
+    const float *samples, int32_t n,
+    SherpaOnnxOfflineSpeakerDiarizationProgressCallbackNoArg cb) {
+  auto res = SherpaOnnxOfflineSpeakerDiarizationProcessWithCallbackNoArg(
+      p_, samples, n, cb);
+  return SpeakerDiarizationResult(res);
+}
+
+OfflineSpeakerDiarization::OfflineSpeakerDiarization(const SherpaOnnxOfflineSpeakerDiarization *p)
+    : MoveOnly<OfflineSpeakerDiarization, SherpaOnnxOfflineSpeakerDiarization>(p) {}
+
 }  // namespace sherpa_onnx::cxx

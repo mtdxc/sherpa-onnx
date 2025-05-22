@@ -92,6 +92,7 @@ struct OnlineRecognizerConfig {
 
 struct OnlineRecognizerResult {
   std::string text;
+  // 以下两数组长度相同
   std::vector<std::string> tokens;
   std::vector<float> timestamps;
   std::string json;
@@ -147,7 +148,7 @@ class SHERPA_ONNX_API MoveOnly {
     if (p_ == nullptr) {
       return;
     }
-
+    // 子类必须实现Destroy(T*)方法，来释放资源
     static_cast<Derived *>(this)->Destroy(p_);
 
     p_ = nullptr;
@@ -478,6 +479,90 @@ class SHERPA_ONNX_API KeywordSpotter
   explicit KeywordSpotter(const SherpaOnnxKeywordSpotter *p);
 };
 
+///////////////////////////////////////////////////////
+// OfflineSpeakerSegmentation
+struct OfflineSpeakerSegmentationPyannoteModelConfig {
+  std::string model;
+};
+
+struct OfflineSpeakerSegmentationModelConfig {
+  OfflineSpeakerSegmentationPyannoteModelConfig pyannote;
+  int32_t num_threads;   // 1
+  int32_t debug;         // false
+  std::string provider;  // "cpu"
+};
+
+struct FastClusteringConfig {
+  // If greater than 0, then threshold is ignored.
+  //
+  // We strongly recommend that you set it if you know the number of clusters
+  // in advance
+  int32_t num_clusters;
+
+  // distance threshold.
+  //
+  // The smaller, the more clusters it will generate.
+  // The larger, the fewer clusters it will generate.
+  float threshold;
+};
+
+struct SpeakerEmbeddingExtractorConfig {
+  std::string model;
+  int32_t num_threads;
+  int32_t debug;
+  std::string provider;
+};
+
+struct OfflineSpeakerDiarizationConfig {
+  OfflineSpeakerSegmentationModelConfig segmentation;
+  SpeakerEmbeddingExtractorConfig embedding;
+  FastClusteringConfig clustering;
+
+  // if a segment is less than this value, then it is discarded
+  float min_duration_on;  // in seconds
+
+  // if the gap between to segments of the same speaker is less than this value,
+  // then these two segments are merged into a single segment.
+  // We do this recursively.
+  float min_duration_off;  // in seconds
+  void set(SherpaOnnxOfflineSpeakerDiarizationConfig &conf) const;
+};
+
+struct OfflineSpeakerDiarizationSegment {
+  float start;
+  float end;
+  int32_t speaker;
+};
+
+class SHERPA_ONNX_API SpeakerDiarizationResult : public MoveOnly<SpeakerDiarizationResult, SherpaOnnxOfflineSpeakerDiarizationResult> {
+ public:
+  explicit SpeakerDiarizationResult(
+      const SherpaOnnxOfflineSpeakerDiarizationResult *p);
+  void Destroy(const SherpaOnnxOfflineSpeakerDiarizationResult *p) const;
+  int32_t GetNumSegments() const;
+  int32_t GetNumSpeakers() const;
+
+  int32_t SortByStartTime(std::vector<OfflineSpeakerDiarizationSegment> &segs) const;
+};
+
+class SHERPA_ONNX_API OfflineSpeakerDiarization : public MoveOnly<OfflineSpeakerDiarization, SherpaOnnxOfflineSpeakerDiarization> {
+ public:
+  static OfflineSpeakerDiarization Create(
+      const OfflineSpeakerDiarizationConfig &config);
+
+  void Destroy(const SherpaOnnxOfflineSpeakerDiarization *p) const;
+  void setConfig(const OfflineSpeakerDiarizationConfig &config) const;
+  int32_t GetSampleRate() const;
+  SpeakerDiarizationResult Process(const float *samples, int32_t n);
+  SpeakerDiarizationResult ProcessWithCallback(const float *samples, int32_t n,
+      SherpaOnnxOfflineSpeakerDiarizationProgressCallback callback, void *arg);
+  SpeakerDiarizationResult Process(const float *samples, int32_t n,
+      SherpaOnnxOfflineSpeakerDiarizationProgressCallbackNoArg cb);
+ private:
+  explicit OfflineSpeakerDiarization(const SherpaOnnxOfflineSpeakerDiarization *p);
+};
+
+// 语音降噪
 struct OfflineSpeechDenoiserGtcrnModelConfig {
   std::string model;
 };
