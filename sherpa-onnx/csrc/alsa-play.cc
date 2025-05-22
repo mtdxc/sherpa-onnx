@@ -39,23 +39,19 @@ void AlsaPlay::SetParameters(int32_t sample_rate) {
   snd_pcm_hw_params_alloca(&params);
   snd_pcm_hw_params_any(handle_, params);
 
-  int32_t err = snd_pcm_hw_params_set_access(handle_, params,
-                                             SND_PCM_ACCESS_RW_INTERLEAVED);
+  int32_t err = snd_pcm_hw_params_set_access(handle_, params, SND_PCM_ACCESS_RW_INTERLEAVED);
   if (err < 0) {
-    printf("SND_PCM_ACCESS_RW_INTERLEAVED is not supported: %s\n",
-           snd_strerror(err));
+    printf("SND_PCM_ACCESS_RW_INTERLEAVED is not supported: %s\n", snd_strerror(err));
     exit(-1);
   }
 
   err = snd_pcm_hw_params_set_format(handle_, params, SND_PCM_FORMAT_S16_LE);
-
   if (err < 0) {
     printf("Can't set format to 16-bit: %s\n", snd_strerror(err));
     exit(-1);
   }
 
   err = snd_pcm_hw_params_set_channels(handle_, params, 1);
-
   if (err < 0) {
     printf("Can't set channel number to 1: %s\n", snd_strerror(err));
   }
@@ -76,15 +72,10 @@ void AlsaPlay::SetParameters(int32_t sample_rate) {
   snd_pcm_hw_params_get_rate(params, &tmp, 0);
   int32_t actual_sample_rate = tmp;
   if (actual_sample_rate != sample_rate) {
-    fprintf(stderr,
-            "Creating a resampler:\n"
-            "   in_sample_rate: %d\n"
-            "   output_sample_rate: %d\n",
-            sample_rate, actual_sample_rate);
+    fprintf(stderr, "Creating a resampler: %d->%d\n", sample_rate, actual_sample_rate);
 
     float min_freq = std::min(actual_sample_rate, sample_rate);
     float lowpass_cutoff = 0.99 * 0.5 * min_freq;
-
     int32_t lowpass_filter_width = 6;
     resampler_ = std::make_unique<LinearResample>(
         sample_rate, actual_sample_rate, lowpass_cutoff, lowpass_filter_width);
