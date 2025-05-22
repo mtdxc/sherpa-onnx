@@ -141,8 +141,7 @@ class OfflineSpeechDenoiserGtcrnModel::Impl {
     std::string model_type;
     SHERPA_ONNX_READ_META_DATA_STR(model_type, "model_type");
     if (model_type != "gtcrn") {
-      SHERPA_ONNX_LOGE("Expect model type 'gtcrn'. Given: '%s'",
-                       model_type.c_str());
+      SHERPA_ONNX_LOGE("Expect model type 'gtcrn'. Given: '%s'", model_type.c_str());
       SHERPA_ONNX_EXIT(-1);
     }
 
