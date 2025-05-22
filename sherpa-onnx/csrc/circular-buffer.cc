@@ -1,19 +1,15 @@
 // sherpa-onnx/csrc/circular-buffer.cc
 //
 // Copyright (c)  2023  Xiaomi Corporation
-
-#include "sherpa-onnx/csrc/circular-buffer.h"
-
 #include <algorithm>
-
 #include "sherpa-onnx/csrc/macros.h"
+#include "sherpa-onnx/csrc/circular-buffer.h"
 
 namespace sherpa_onnx {
 
 CircularBuffer::CircularBuffer(int32_t capacity) {
   if (capacity <= 0) {
-    SHERPA_ONNX_LOGE("Please specify a positive capacity. Given: %d\n",
-                     capacity);
+    SHERPA_ONNX_LOGE("Please specify a positive capacity. Given: %d\n", capacity);
     exit(-1);
   }
   buffer_.resize(capacity);

@@ -986,11 +986,9 @@ SHERPA_ONNX_API typedef struct SherpaOnnxGeneratedAudio {
 
 // If the callback returns 0, then it stops generating
 // If the callback returns 1, then it keeps generating
-typedef int32_t (*SherpaOnnxGeneratedAudioCallback)(const float *samples,
-                                                    int32_t n);
+typedef int32_t (*SherpaOnnxGeneratedAudioCallback)(const float *samples, int32_t n);
 
-typedef int32_t (*SherpaOnnxGeneratedAudioCallbackWithArg)(const float *samples,
-                                                           int32_t n,
+typedef int32_t (*SherpaOnnxGeneratedAudioCallbackWithArg)(const float *samples, int32_t n,
                                                            void *arg);
 
 typedef int32_t (*SherpaOnnxGeneratedAudioProgressCallback)(
@@ -1022,8 +1020,7 @@ SherpaOnnxOfflineTtsNumSpeakers(const SherpaOnnxOfflineTts *tts);
 // The user has to use SherpaOnnxDestroyOfflineTtsGeneratedAudio() to free the
 // returned pointer to avoid memory leak.
 SHERPA_ONNX_API const SherpaOnnxGeneratedAudio *SherpaOnnxOfflineTtsGenerate(
-    const SherpaOnnxOfflineTts *tts, const char *text, int32_t sid,
-    float speed);
+    const SherpaOnnxOfflineTts *tts, const char *text, int32_t sid, float speed);
 
 // callback is called whenever SherpaOnnxOfflineTtsConfig.max_num_sentences
 // sentences have been processed. The pointer passed to the callback
@@ -1101,7 +1098,7 @@ SHERPA_ONNX_API const SherpaOnnxWave *SherpaOnnxReadWaveFromBinaryData(
 SHERPA_ONNX_API void SherpaOnnxFreeWave(const SherpaOnnxWave *wave);
 
 // ============================================================
-// For spoken language identification
+// For spoken language identification 语言检测
 // ============================================================
 
 SHERPA_ONNX_API typedef struct
@@ -1157,7 +1154,7 @@ SHERPA_ONNX_API void SherpaOnnxDestroySpokenLanguageIdentificationResult(
     const SherpaOnnxSpokenLanguageIdentificationResult *r);
 
 // ============================================================
-// For speaker embedding extraction
+// For speaker embedding extraction 特征提取，判断谁在说话
 // ============================================================
 SHERPA_ONNX_API typedef struct SherpaOnnxSpeakerEmbeddingExtractorConfig {
   const char *model;
@@ -1193,7 +1190,7 @@ SHERPA_ONNX_API int32_t SherpaOnnxSpeakerEmbeddingExtractorIsReady(
     const SherpaOnnxSpeakerEmbeddingExtractor *p,
     const SherpaOnnxOnlineStream *s);
 
-// Compute the embedding of the stream.
+// Compute the embedding of the stream. 计算某个流的特征值数组
 //
 // @return Return a pointer pointing to an array containing the embedding.
 // The length of the array is `dim` as returned by
@@ -1205,10 +1202,11 @@ SHERPA_ONNX_API const float *
 SherpaOnnxSpeakerEmbeddingExtractorComputeEmbedding(
     const SherpaOnnxSpeakerEmbeddingExtractor *p,
     const SherpaOnnxOnlineStream *s);
-
+// 释放特征数组
 SHERPA_ONNX_API void SherpaOnnxSpeakerEmbeddingExtractorDestroyEmbedding(
     const float *v);
 
+// 特征管理器，提供特征和名字的映射和匹配
 SHERPA_ONNX_API typedef struct SherpaOnnxSpeakerEmbeddingManager
     SherpaOnnxSpeakerEmbeddingManager;
 
