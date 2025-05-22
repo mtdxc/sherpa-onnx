@@ -30,22 +30,16 @@ void VadModelConfig::Register(ParseOptions *po) {
 }
 
 bool VadModelConfig::Validate() const {
-  if (provider != "rknn") {
-    if (!silero_vad.model.empty() && EndsWith(silero_vad.model, ".rknn")) {
-      SHERPA_ONNX_LOGE(
-          "--provider is %s, which is not rknn, but you pass an rknn model "
-          "'%s'",
-          provider.c_str(), silero_vad.model.c_str());
-      return false;
-    }
-  }
-
-  if (provider == "rknn") {
-    if (!silero_vad.model.empty() && EndsWith(silero_vad.model, ".onnx")) {
-      SHERPA_ONNX_LOGE("--provider is rknn, but you pass an onnx model '%s'",
-                       silero_vad.model.c_str());
-      return false;
-    }
+  if (silero_vad.model.empty())
+    return false;
+  if (provider == "rknn" && !EndsWith(silero_vad.model, ".rknn")) {
+    SHERPA_ONNX_LOGE("--provider is rknn, but you pass an onnx model '%s'",
+                      silero_vad.model.c_str());
+    return false;
+  } else if (!EndsWith(silero_vad.model, ".onnx")) {
+    SHERPA_ONNX_LOGE("--provider is %s, which is not rknn, but you pass an rknn model '%s'",
+        provider.c_str(), silero_vad.model.c_str());
+    return false;
   }
 
   return silero_vad.Validate();

@@ -77,9 +77,12 @@ void main(List<String> arguments) async {
     ruleFars: ruleFars,
   );
 
+  final stopwatch = Stopwatch()..start();
   final tts = sherpa_onnx.OfflineTts(config);
   final audio = tts.generate(text: text, sid: sid, speed: speed);
   tts.free();
+  stopwatch.stop();
+  print('Time elapsed: ${stopwatch.elapsedMilliseconds} ms, generated ${audio.samples.length/audio.sampleRate} second audio', );
 
   sherpa_onnx.writeWave(
     filename: outputWav,

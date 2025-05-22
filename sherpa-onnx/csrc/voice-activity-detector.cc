@@ -55,7 +55,6 @@ class VoiceActivityDetector::Impl {
     // note n is usually window_size and there is no need to use
     // an extra buffer here
     last_.insert(last_.end(), samples, samples + n);
-
     if (last_.size() < window_size) {
       return;
     }

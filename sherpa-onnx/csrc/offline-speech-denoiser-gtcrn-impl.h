@@ -40,11 +40,7 @@ class OfflineSpeechDenoiserGtcrnImpl : public OfflineSpeechDenoiserImpl {
     auto p = samples;
 
     if (sample_rate != meta.sample_rate) {
-      SHERPA_ONNX_LOGE(
-          "Creating a resampler:\n"
-          "   in_sample_rate: %d\n"
-          "   output_sample_rate: %d\n",
-          sample_rate, meta.sample_rate);
+      SHERPA_ONNX_LOGE("Creating a resampler:%d->%d\n", sample_rate, meta.sample_rate);
 
       float min_freq = std::min<int32_t>(sample_rate, meta.sample_rate);
       float lowpass_cutoff = 0.99 * 0.5 * min_freq;
