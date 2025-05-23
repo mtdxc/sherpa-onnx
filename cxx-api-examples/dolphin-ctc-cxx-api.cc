@@ -19,7 +19,7 @@
 
 #include "sherpa-onnx/c-api/cxx-api.h"
 
-int32_t main() {
+int32_t main(int argc, char** argv) {
   using namespace sherpa_onnx::cxx;  // NOLINT
   OfflineRecognizerConfig config;
 
@@ -31,6 +31,14 @@ int32_t main() {
   // clang-format on
 
   config.model_config.num_threads = 1;
+  for (int i=1; i<argc; ++i) {
+    auto arg = argv[i];
+    if (arg[0] == '-') {
+      config.model_config.num_threads = std::stoi(arg+1);
+    } else {
+      wave_filename = arg;
+    }
+  } 
 
   std::cout << "Loading model\n";
   OfflineRecognizer recognizer = OfflineRecognizer::Create(config);
@@ -59,9 +67,7 @@ int32_t main() {
 
   const auto end = std::chrono::steady_clock::now();
   const float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float duration = wave.samples.size() / static_cast<float>(wave.sample_rate);
   float rtf = elapsed_seconds / duration;
 

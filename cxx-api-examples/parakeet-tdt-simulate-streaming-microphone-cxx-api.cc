@@ -151,6 +151,7 @@ int32_t main() {
 
   param.suggestedLatency = info->defaultLowInputLatency;
   param.hostApiSpecificStreamInfo = nullptr;
+
   float mic_sample_rate = 16000;
   const char *sample_rate_str = std::getenv("SHERPA_ONNX_MIC_SAMPLE_RATE");
   if (sample_rate_str) {
