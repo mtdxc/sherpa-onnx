@@ -60,10 +60,7 @@ int32_t main() {
   OfflineRecognizerResult result = recognizer.GetResult(&stream);
 
   const auto end = std::chrono::steady_clock::now();
-  const float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+  const float elapsed_seconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float duration = wave.samples.size() / static_cast<float>(wave.sample_rate);
   float rtf = elapsed_seconds / duration;
 

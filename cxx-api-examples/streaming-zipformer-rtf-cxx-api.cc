@@ -51,23 +51,14 @@ int32_t main(int argc, char *argv[]) {
   using namespace sherpa_onnx::cxx;  // NOLINT
   OnlineRecognizerConfig config;
 
+  const std::string dir = "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/";
   // please see
   // https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-transducer/zipformer-transducer-models.html#csukuangfj-sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20-bilingual-chinese-english
-  config.model_config.transducer.encoder =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/"
-      "encoder-epoch-99-avg-1.int8.onnx";
-
+  config.model_config.transducer.encoder = dir + "encoder-epoch-99-avg-1.int8.onnx";
   // Note: We recommend not using int8.onnx for the decoder.
-  config.model_config.transducer.decoder =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/"
-      "decoder-epoch-99-avg-1.onnx";
-
-  config.model_config.transducer.joiner =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/"
-      "joiner-epoch-99-avg-1.int8.onnx";
-
-  config.model_config.tokens =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/tokens.txt";
+  config.model_config.transducer.decoder = dir + "decoder-epoch-99-avg-1.onnx";
+  config.model_config.transducer.joiner = dir + "joiner-epoch-99-avg-1.int8.onnx";
+  config.model_config.tokens = dir + "tokens.txt";
 
   config.model_config.num_threads = 1;
   config.model_config.provider = use_gpu ? "cuda" : "cpu";
@@ -80,9 +71,7 @@ int32_t main(int argc, char *argv[]) {
   }
   std::cout << "Loading model done\n";
 
-  std::string wave_filename =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/test_wavs/"
-      "0.wav";
+  std::string wave_filename = dir + "/test_wavs/0.wav";
   Wave wave = ReadWave(wave_filename);
   if (wave.samples.empty()) {
     std::cerr << "Failed to read: '" << wave_filename << "'\n";
@@ -107,10 +96,7 @@ int32_t main(int argc, char *argv[]) {
     result = recognizer.GetResult(&stream);
 
     auto end = std::chrono::steady_clock::now();
-    float elapsed_seconds =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-            .count() /
-        1000.;
+    float elapsed_seconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
     printf("Run %d/%d, elapsed seconds: %.3f\n", i, num_runs, elapsed_seconds);
     total_elapsed_seconds += elapsed_seconds;
   }

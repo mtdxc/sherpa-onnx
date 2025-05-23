@@ -21,31 +21,20 @@
 
 int32_t main() {
   using namespace sherpa_onnx::cxx;  // NOLINT
-
+  const std::string dir = "./sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/";
   KeywordSpotterConfig config;
-  config.model_config.transducer.encoder =
-      "./sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/"
-      "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx";
-
-  config.model_config.transducer.decoder =
-      "./sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/"
-      "decoder-epoch-12-avg-2-chunk-16-left-64.onnx";
-
-  config.model_config.transducer.joiner =
-      "./sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/"
-      "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx";
-
-  config.model_config.tokens =
-      "./sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/"
-      "tokens.txt";
+  config.model_config.transducer.encoder = dir + "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx";
+  config.model_config.transducer.decoder = dir + "decoder-epoch-12-avg-2-chunk-16-left-64.onnx";
+  config.model_config.transducer.joiner = dir + "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx";
+  config.model_config.tokens = dir + "tokens.txt";
 
   config.model_config.provider = "cpu";
   config.model_config.num_threads = 1;
   config.model_config.debug = 1;
 
-  config.keywords_file =
-      "./sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/"
-      "test_wavs/test_keywords.txt";
+  config.keywords_file = dir + "test_wavs/test_keywords.txt";
+
+  std::string wave_filename = dir + "test_wavs/3.wav";
 
   KeywordSpotter kws = KeywordSpotter::Create(config);
   if (!kws.Get()) {
@@ -53,12 +42,7 @@ int32_t main() {
     return -1;
   }
 
-  std::cout
-      << "--Test pre-defined keywords from test_wavs/test_keywords.txt--\n";
-
-  std::string wave_filename =
-      "./sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01-mobile/"
-      "test_wavs/3.wav";
+  std::cout << "--Test pre-defined keywords from test_wavs/test_keywords.txt--\n";
 
   std::array<float, 8000> tail_paddings = {0};  // 0.5 seconds
 
