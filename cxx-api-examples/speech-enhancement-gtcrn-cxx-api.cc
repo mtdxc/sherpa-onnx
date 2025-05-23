@@ -43,17 +43,14 @@ int32_t main() {
 
   std::cout << "Started\n";
   const auto begin = std::chrono::steady_clock::now();
-  auto denoised =
-      sd.Run(wave.samples.data(), wave.samples.size(), wave.sample_rate);
+  auto denoised = sd.Run(wave.samples.data(), wave.samples.size(), wave.sample_rate);
   const auto end = std::chrono::steady_clock::now();
   std::cout << "Done\n";
 
   WriteWave(out_wave_filename, {denoised.samples, denoised.sample_rate});
 
   const float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float duration = wave.samples.size() / static_cast<float>(wave.sample_rate);
   float rtf = elapsed_seconds / duration;
 

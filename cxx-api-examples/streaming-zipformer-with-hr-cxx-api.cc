@@ -29,24 +29,17 @@
 int32_t main() {
   using namespace sherpa_onnx::cxx;  // NOLINT
   OnlineRecognizerConfig config;
-
+  const std::string dir = "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/";
   // please see
   // https://k2-fsa.github.io/sherpa/onnx/pretrained_models/online-transducer/zipformer-transducer-models.html#csukuangfj-sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20-bilingual-chinese-english
-  config.model_config.transducer.encoder =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/"
-      "encoder-epoch-99-avg-1.int8.onnx";
+  config.model_config.transducer.encoder = dir + "encoder-epoch-99-avg-1.int8.onnx";
 
   // Note: We recommend not using int8.onnx for the decoder.
-  config.model_config.transducer.decoder =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/"
-      "decoder-epoch-99-avg-1.onnx";
+  config.model_config.transducer.decoder = dir + "decoder-epoch-99-avg-1.onnx";
 
-  config.model_config.transducer.joiner =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/"
-      "joiner-epoch-99-avg-1.int8.onnx";
+  config.model_config.transducer.joiner = dir + "joiner-epoch-99-avg-1.int8.onnx";
 
-  config.model_config.tokens =
-      "./sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20/tokens.txt";
+  config.model_config.tokens = dir + "tokens.txt";
 
   config.model_config.num_threads = 1;
 
@@ -89,9 +82,7 @@ int32_t main() {
 
   const auto end = std::chrono::steady_clock::now();
   const float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float duration = wave.samples.size() / static_cast<float>(wave.sample_rate);
   float rtf = elapsed_seconds / duration;
 

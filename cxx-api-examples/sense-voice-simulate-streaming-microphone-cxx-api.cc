@@ -186,6 +186,7 @@ int32_t main() {
       }
     }
     if (!speech_started) {
+      // 没声音最多保存10个窗口数据
       if (buffer.size() > 10 * window_size) {
         offset -= buffer.size() - 10 * window_size;
         buffer = {buffer.end() - 10 * window_size, buffer.end()};
@@ -194,10 +195,7 @@ int32_t main() {
 
     auto current_time = std::chrono::steady_clock::now();
     const float elapsed_seconds =
-        std::chrono::duration_cast<std::chrono::milliseconds>(current_time -
-                                                              started_time)
-            .count() /
-        1000.;
+        std::chrono::duration_cast<std::chrono::milliseconds>(current_time - started_time).count() / 1000.;
 
     if (speech_started && elapsed_seconds > 0.2) {
       OfflineStream stream = recognizer.CreateStream();

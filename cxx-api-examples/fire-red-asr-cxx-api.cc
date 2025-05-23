@@ -18,7 +18,7 @@
 
 #include "sherpa-onnx/c-api/cxx-api.h"
 
-int32_t main() {
+int32_t main(int argc, char** argv) {
   using namespace sherpa_onnx::cxx;  // NOLINT
   OfflineRecognizerConfig config;
 
@@ -29,7 +29,17 @@ int32_t main() {
   config.model_config.tokens =
       "./sherpa-onnx-fire-red-asr-large-zh_en-2025-02-16/tokens.txt";
 
+  std::string wave_filename =
+      "./sherpa-onnx-fire-red-asr-large-zh_en-2025-02-16/test_wavs/0.wav";
   config.model_config.num_threads = 1;
+  for (int i=1; i<argc; ++i) {
+    auto arg = argv[i];
+    if (arg[0] == '-') {
+      config.model_config.num_threads = std::stoi(arg+1);
+    } else {
+      wave_filename = arg;
+    }
+  } 
 
   std::cout << "Loading model\n";
   OfflineRecognizer recognizer = OfflineRecognizer::Create(config);
@@ -39,8 +49,6 @@ int32_t main() {
   }
   std::cout << "Loading model done\n";
 
-  std::string wave_filename =
-      "./sherpa-onnx-fire-red-asr-large-zh_en-2025-02-16/test_wavs/0.wav";
   Wave wave = ReadWave(wave_filename);
   if (wave.samples.empty()) {
     std::cerr << "Failed to read: '" << wave_filename << "'\n";
@@ -59,17 +67,14 @@ int32_t main() {
   OfflineRecognizerResult result = recognizer.GetResult(&stream);
 
   const auto end = std::chrono::steady_clock::now();
-  const float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+  const float elapsed_seconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float duration = wave.samples.size() / static_cast<float>(wave.sample_rate);
   float rtf = elapsed_seconds / duration;
 
   std::cout << "text: " << result.text << "\n";
   printf("Number of threads: %d\n", config.model_config.num_threads);
   printf("Duration: %.3fs\n", duration);
-  printf("Elapsed seconds: %.3fs\n", elapsed_seconds);
+  printf("Elapsed seconds: %.3fsl\n", elapsed_seconds);
   printf("(Real time factor) RTF = %.3f / %.3f = %.3f\n", elapsed_seconds,
          duration, rtf);
 
