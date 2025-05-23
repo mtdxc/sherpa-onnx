@@ -38,10 +38,10 @@ int32_t main(int32_t argc, char *argv[]) {
   config.model.kokoro.voices = "./kokoro-multi-lang-v1_0/voices.bin";
   config.model.kokoro.tokens = "./kokoro-multi-lang-v1_0/tokens.txt";
   config.model.kokoro.data_dir = "./kokoro-multi-lang-v1_0/espeak-ng-data";
+  // 多语言后面增加这两个属性
   config.model.kokoro.dict_dir = "./kokoro-multi-lang-v1_0/dict";
   config.model.kokoro.lexicon =
-      "./kokoro-multi-lang-v1_0/lexicon-us-en.txt,./kokoro-multi-lang-v1_0/"
-      "lexicon-zh.txt";
+      "./kokoro-multi-lang-v1_0/lexicon-us-en.txt,./kokoro-multi-lang-v1_0/lexicon-zh.txt";
 
   config.model.num_threads = 2;
 

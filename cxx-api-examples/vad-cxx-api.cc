@@ -41,6 +41,7 @@ int32_t main() {
     std::cerr << "Failed to read: '" << wave_filename << "'\n";
     return -1;
   }
+
   bool is_eof = false;
   int32_t i = 0;
   int32_t window_size = config.silero_vad.window_size;
@@ -61,8 +62,7 @@ int32_t main() {
     while (!vad.IsEmpty()) {
       auto segment = vad.Front();
       float start_time = segment.start / static_cast<float>(sample_rate);
-      float end_time =
-          start_time + segment.samples.size() / static_cast<float>(sample_rate);
+      float end_time = start_time + segment.samples.size() / static_cast<float>(sample_rate);
       printf("%.3f -- %.3f\n", start_time, end_time);
 
       samples_without_silence.insert(samples_without_silence.end(),
