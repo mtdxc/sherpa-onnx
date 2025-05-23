@@ -812,4 +812,46 @@ SpeakerDiarizationResult OfflineSpeakerDiarization::Process(
 OfflineSpeakerDiarization::OfflineSpeakerDiarization(const SherpaOnnxOfflineSpeakerDiarization *p)
     : MoveOnly<OfflineSpeakerDiarization, SherpaOnnxOfflineSpeakerDiarization>(p) {}
 
+OnlinePunctuation OnlinePunctuation::Create(const OnlinePunctuationConfig &config) {
+  SherpaOnnxOnlinePunctuationConfig cfg;
+  cfg.model.cnn_bilstm = config.model.cnn_bilstm.c_str();
+  cfg.model.bpe_vocab = config.model.bpe_vocab.c_str();
+  cfg.model.num_threads = config.model.num_threads;
+  cfg.model.debug = config.model.debug;
+  cfg.model.provider = config.model.provider.c_str();
+  return OnlinePunctuation(SherpaOnnxCreateOnlinePunctuation(&cfg));
+}
+
+void OnlinePunctuation::Destroy(const SherpaOnnxOnlinePunctuation *p) const {
+  SherpaOnnxDestroyOnlinePunctuation(p);
+}
+
+std::string OnlinePunctuation::AddPunct(const std::string &input) const {
+  const char *text = SherpaOnnxOnlinePunctuationAddPunct(p_, input.c_str());
+  std::string result(text);
+  SherpaOnnxOnlinePunctuationFreeText(text);
+  return result;
+}
+
+OfflinePunctuation OfflinePunctuation::Create(const OfflinePunctuationConfig &config) {
+  SherpaOnnxOfflinePunctuationConfig cfg;
+  cfg.model.ct_transformer = config.model.ct_transformer.c_str();
+  cfg.model.num_threads = config.model.num_threads;
+  cfg.model.debug = config.model.debug;
+  cfg.model.provider = config.model.provider.c_str();
+  return OfflinePunctuation(SherpaOnnxCreateOfflinePunctuation(&cfg));
+}
+
+void OfflinePunctuation::Destroy(const SherpaOnnxOfflinePunctuation *p) const {
+  SherpaOnnxDestroyOfflinePunctuation(p);
+}
+
+std::string OfflinePunctuation::AddPunct(
+    const std::string &input) const {
+  const char *text = SherpaOfflinePunctuationAddPunct(p_, input.c_str());
+  std::string result(text);
+  SherpaOfflinePunctuationFreeText(text);
+  return result;
+}
+
 }  // namespace sherpa_onnx::cxx

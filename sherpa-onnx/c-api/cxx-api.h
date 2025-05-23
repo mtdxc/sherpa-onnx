@@ -562,7 +562,63 @@ class SHERPA_ONNX_API OfflineSpeakerDiarization : public MoveOnly<OfflineSpeaker
   explicit OfflineSpeakerDiarization(const SherpaOnnxOfflineSpeakerDiarization *p);
 };
 
+// ============================================================
+// For punctuation 标点符号
+// ============================================================
+struct OfflinePunctuationModelConfig {
+  std::string ct_transformer;
+  int32_t num_threads;
+  int32_t debug;  // true to print debug information of the model
+  std::string provider;
+};
+
+struct OfflinePunctuationConfig {
+  OfflinePunctuationModelConfig model;
+};
+
+class SHERPA_ONNX_API OfflinePunctuation
+    : public MoveOnly<OfflinePunctuation, SherpaOnnxOfflinePunctuation> {
+ public:
+  static OfflinePunctuation Create(const OfflinePunctuationConfig &config);
+
+  void Destroy(const SherpaOnnxOfflinePunctuation *p) const;
+
+  std::string AddPunct(const std::string &input) const;
+
+ private:
+  explicit OfflinePunctuation(const SherpaOnnxOfflinePunctuation *p)
+      : MoveOnly<OfflinePunctuation, SherpaOnnxOfflinePunctuation>(p) {}
+};
+
+struct OnlinePunctuationModelConfig {
+  std::string cnn_bilstm;
+  std::string bpe_vocab;
+  int32_t num_threads;
+  int32_t debug;
+  std::string provider;
+};
+
+struct OnlinePunctuationConfig {
+  OnlinePunctuationModelConfig model;
+};
+
+class SHERPA_ONNX_API OnlinePunctuation
+    : public MoveOnly<OnlinePunctuation, SherpaOnnxOnlinePunctuation> {
+ public:
+  static OnlinePunctuation Create(const OnlinePunctuationConfig &config);
+
+  void Destroy(const SherpaOnnxOnlinePunctuation *p) const;
+
+  std::string AddPunct(const std::string &input) const;
+
+ private:
+  explicit OnlinePunctuation(const SherpaOnnxOnlinePunctuation *p)
+      : MoveOnly<OnlinePunctuation, SherpaOnnxOnlinePunctuation>(p) {}
+};
+
+/////////////////////////////////////////////////////
 // 语音降噪
+/////////////////////////////////////////////////////
 struct OfflineSpeechDenoiserGtcrnModelConfig {
   std::string model;
 };
@@ -598,6 +654,7 @@ class SHERPA_ONNX_API OfflineSpeechDenoiser
  private:
   explicit OfflineSpeechDenoiser(const SherpaOnnxOfflineSpeechDenoiser *p);
 };
+
 
 // ==============================
 // VAD
