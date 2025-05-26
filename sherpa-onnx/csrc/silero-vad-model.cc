@@ -93,7 +93,43 @@ class SileroVadModel::Impl {
     float threshold = config_.silero_vad.threshold;
 
     current_sample_ += config_.silero_vad.window_size;
+#if 0
+    if (prob > threshold) {
+      if (temp_end_ != 0) temp_end_ = 0;
+      if (temp_start_ == 0) {
+        temp_start_ = current_sample_;
+        return false;
+      } else if (!triggered_) {
+        if (current_sample_ - temp_start_ < min_silence_samples_) return false;
+        triggered_ = true;
+        return true;
+      }
+      return true;
+    } else {
+      if (!triggered_) { // no sound prev
+        temp_start_ = temp_end_ = 0;
+        return false;
+      } else if(prob > threshold - 0.15) {
+        return true;
+      } else {
+        // stop to speak
+        if (temp_end_ == 0) {
+          temp_end_ = current_sample_;
+        }
 
+        if (current_sample_ - temp_end_ < min_silence_samples_) {
+          // continue speaking
+          return true;
+        }
+        // stopped speaking
+        temp_start_ = 0;
+        temp_end_ = 0;
+        triggered_ = false;
+        return false;
+      }
+      return false;
+    }
+#endif
     if (prob > threshold && temp_end_ != 0) {
       temp_end_ = 0;
     }

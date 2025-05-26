@@ -36,9 +36,9 @@ class OfflineSpeechDenoiserGtcrnImpl : public OfflineSpeechDenoiserImpl {
                     int32_t sample_rate) const override {
     const auto &meta = model_.GetMetaData();
 
-    std::vector<float> tmp;
     auto p = samples;
-
+    // try resample
+    std::vector<float> tmp;
     if (sample_rate != meta.sample_rate) {
       SHERPA_ONNX_LOGE("Creating a resampler:%d->%d\n", sample_rate, meta.sample_rate);
 
@@ -58,6 +58,7 @@ class OfflineSpeechDenoiserGtcrnImpl : public OfflineSpeechDenoiserImpl {
     stft_config.hop_length = meta.hop_length;
     stft_config.win_length = meta.window_length;
     stft_config.window_type = meta.window_type;
+    // gen hann window
     if (stft_config.window_type == "hann_sqrt") {
       auto window = knf::GetWindow("hann", stft_config.win_length);
       for (auto &w : window) {
@@ -65,7 +66,8 @@ class OfflineSpeechDenoiserGtcrnImpl : public OfflineSpeechDenoiserImpl {
       }
       stft_config.window = std::move(window);
     }
-
+    
+    // stft
     knf::Stft stft(stft_config);
     knf::StftResult stft_result = stft.Compute(p, n);
 
@@ -84,10 +86,10 @@ class OfflineSpeechDenoiserGtcrnImpl : public OfflineSpeechDenoiserImpl {
                                        p.second.begin(), p.second.end());
     }
 
-    knf::IStft istft(stft_config);
-
     DenoisedAudio denoised_audio;
     denoised_audio.sample_rate = meta.sample_rate;
+    // istft
+    knf::IStft istft(stft_config);
     denoised_audio.samples = istft.Compute(enhanced_stft_result);
     return denoised_audio;
   }

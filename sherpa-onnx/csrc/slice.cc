@@ -12,8 +12,8 @@ namespace sherpa_onnx {
 
 template <typename T /*=float*/>
 Ort::Value Slice(OrtAllocator *allocator, const Ort::Value *v,
-                 int32_t dim0_start, int32_t dim0_end, int32_t dim1_start,
-                 int32_t dim1_end) {
+                 int32_t dim0_start, int32_t dim0_end, 
+                 int32_t dim1_start, int32_t dim1_end) {
   std::vector<int64_t> shape = v->GetTensorTypeAndShapeInfo().GetShape();
   assert(shape.size() == 3);
 
