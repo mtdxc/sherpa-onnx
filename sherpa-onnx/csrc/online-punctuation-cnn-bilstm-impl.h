@@ -69,8 +69,7 @@ class OnlinePunctuationCNNBiLSTMImpl : public OnlinePunctuationImpl {
 
     const auto &meta_data = model_.GetModelMetadata();
 
-    auto memory_info =
-        Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
+    auto memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
     int32_t n = label_len_list.size();
 
@@ -101,15 +100,13 @@ class OnlinePunctuationCNNBiLSTMImpl : public OnlinePunctuationImpl {
 
     for (int32_t i = 0; i < case_logits_shape[0]; ++i) {
       const float *p_cur_case = active_case_logits + i * meta_data.num_cases;
-      auto index_case = static_cast<int32_t>(std::distance(
-          p_cur_case,
+      auto index_case = static_cast<int32_t>(std::distance(p_cur_case,
           std::max_element(p_cur_case, p_cur_case + meta_data.num_cases)));
       case_pred.push_back(index_case);
 
       const float *p_cur_punct =
           active_punct_logits + i * meta_data.num_punctuations;
-      auto index_punct = static_cast<int32_t>(std::distance(
-          p_cur_punct,
+      auto index_punct = static_cast<int32_t>(std::distance(p_cur_punct,
           std::max_element(p_cur_punct,
                            p_cur_punct + meta_data.num_punctuations)));
       punct_pred.push_back(index_punct);

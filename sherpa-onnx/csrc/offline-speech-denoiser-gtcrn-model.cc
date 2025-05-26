@@ -154,8 +154,7 @@ class OfflineSpeechDenoiserGtcrnModel::Impl {
 
     SHERPA_ONNX_READ_META_DATA_VEC(meta_.conv_cache_shape, "conv_cache_shape");
     SHERPA_ONNX_READ_META_DATA_VEC(meta_.tra_cache_shape, "tra_cache_shape");
-    SHERPA_ONNX_READ_META_DATA_VEC(meta_.inter_cache_shape,
-                                   "inter_cache_shape");
+    SHERPA_ONNX_READ_META_DATA_VEC(meta_.inter_cache_shape, "inter_cache_shape");
   }
 
  private:

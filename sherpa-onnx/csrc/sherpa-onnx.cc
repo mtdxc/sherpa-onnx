@@ -139,9 +139,7 @@ for a list of pre-trained models to download.
       } else if (s.elapsed_seconds == 0) {
         const auto end = std::chrono::steady_clock::now();
         const float elapsed_seconds =
-            std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-                .count() /
-            1000.;
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
         s.elapsed_seconds = elapsed_seconds;
       }
     }

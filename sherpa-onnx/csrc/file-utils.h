@@ -35,6 +35,21 @@ void AssertFileExists(const std::string &filename);
 
 std::vector<char> ReadFile(const std::string &filename);
 
+class AssetMgr {
+  void *mgr_ = nullptr;
+  std::string base_dir_;
+#if __ANDROID_API__ >= 9
+  std::shared_ptr<_jobject> jmgr_;
+ public:
+  void Setup(jobject obj, JNIEnv *env);
+#endif
+ public:
+  static AssetMgr &Instance();
+  void Setup(void *obj) { mgr_ = obj; }
+  void Setup(const char *dir);
+  std::vector<char> ReadFile(const std::string &filename);
+};
+
 #if __ANDROID_API__ >= 9
 std::vector<char> ReadFile(AAssetManager *mgr, const std::string &filename);
 #endif

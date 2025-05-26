@@ -88,16 +88,13 @@ or details.
   const auto end = std::chrono::steady_clock::now();
 
   if (audio.samples.empty()) {
-    fprintf(
-        stderr,
+    fprintf(stderr,
         "Error in generating audio. Please read previous error messages.\n");
     exit(EXIT_FAILURE);
   }
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float duration = audio.samples.size() / static_cast<float>(audio.sample_rate);
 
   float rtf = elapsed_seconds / duration;
@@ -113,8 +110,7 @@ or details.
     exit(EXIT_FAILURE);
   }
 
-  fprintf(stderr, "The text is: %s. Speaker ID: %d\n", po.GetArg(1).c_str(),
-          sid);
+  fprintf(stderr, "The text is: %s. Speaker ID: %d\n", po.GetArg(1).c_str(), sid);
   fprintf(stderr, "Saved to %s successfully!\n", output_filename.c_str());
 
   return 0;

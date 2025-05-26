@@ -53,8 +53,7 @@ static ModelType GetModelType(char *model_data, size_t model_data_length,
   }
 
   Ort::AllocatorWithDefaultOptions allocator;
-  auto model_type =
-      LookupCustomModelMetaData(meta_data, "model_type", allocator);
+  auto model_type = LookupCustomModelMetaData(meta_data, "model_type", allocator);
   if (model_type.empty()) {
     SHERPA_ONNX_LOGE(
         "No model_type in the metadata!\n"

@@ -32,11 +32,9 @@ int32_t main() {
   config.model.debug = 1;
   config.model.provider = "cpu";
 
-  const SherpaOnnxOfflinePunctuation *punct =
-      SherpaOnnxCreateOfflinePunctuation(&config);
+  const SherpaOnnxOfflinePunctuation *punct = SherpaOnnxCreateOfflinePunctuation(&config);
   if (!punct) {
-    fprintf(stderr,
-            "Failed to create OfflinePunctuation. Please check your config");
+    fprintf(stderr, "Failed to create OfflinePunctuation. Please check your config");
     return -1;
   }
 
@@ -52,8 +50,7 @@ int32_t main() {
 
   fprintf(stderr, "--------------------\n");
   for (int32_t i = 0; i != n; ++i) {
-    const char *text_with_punct =
-        SherpaOfflinePunctuationAddPunct(punct, texts[i]);
+    const char *text_with_punct = SherpaOfflinePunctuationAddPunct(punct, texts[i]);
 
     fprintf(stderr, "Input text: %s\n", texts[i]);
     fprintf(stderr, "Output text: %s\n", text_with_punct);
@@ -62,6 +59,5 @@ int32_t main() {
   }
 
   SherpaOnnxDestroyOfflinePunctuation(punct);
-
   return 0;
 };
