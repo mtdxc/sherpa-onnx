@@ -25,8 +25,7 @@ int32_t main() {
   SherpaOnnxAudioTaggingConfig config;
   memset(&config, 0, sizeof(config));
 
-  config.model.zipformer.model =
-      "./sherpa-onnx-zipformer-audio-tagging-2024-04-09/model.int8.onnx";
+  config.model.zipformer.model = "./sherpa-onnx-zipformer-audio-tagging-2024-04-09/model.int8.onnx";
   config.model.num_threads = 1;
   config.model.debug = 1;
   config.model.provider = "cpu";
@@ -42,8 +41,7 @@ int32_t main() {
 
   // You can find more test waves from
   // https://github.com/k2-fsa/sherpa-onnx/releases/download/audio-tagging-models/sherpa-onnx-zipformer-audio-tagging-2024-04-09.tar.bz2
-  const char *wav_filename =
-      "./sherpa-onnx-zipformer-audio-tagging-2024-04-09/test_wavs/1.wav";
+  const char *wav_filename = "./sherpa-onnx-zipformer-audio-tagging-2024-04-09/test_wavs/1.wav";
 
   const SherpaOnnxWave *wave = SherpaOnnxReadWave(wav_filename);
   if (wave == NULL) {
@@ -51,22 +49,18 @@ int32_t main() {
     return -1;
   }
 
-  const SherpaOnnxOfflineStream *stream =
-      SherpaOnnxAudioTaggingCreateOfflineStream(tagger);
+  const SherpaOnnxOfflineStream *stream = SherpaOnnxAudioTaggingCreateOfflineStream(tagger);
 
-  SherpaOnnxAcceptWaveformOffline(stream, wave->sample_rate, wave->samples,
-                                  wave->num_samples);
+  SherpaOnnxAcceptWaveformOffline(stream, wave->sample_rate, wave->samples, wave->num_samples);
 
   int32_t top_k = 5;
-  const SherpaOnnxAudioEvent *const *results =
-      SherpaOnnxAudioTaggingCompute(tagger, stream, top_k);
+  const SherpaOnnxAudioEvent *const *results = SherpaOnnxAudioTaggingCompute(tagger, stream, top_k);
 
   fprintf(stderr, "--------------------------------------------------\n");
   fprintf(stderr, "Index\t\tProbability\t\tEvent name\n");
   fprintf(stderr, "--------------------------------------------------\n");
   for (int32_t i = 0; i != top_k; ++i) {
-    fprintf(stderr, "%d\t\t%.3f\t\t\t%s\n", i, results[i]->prob,
-            results[i]->name);
+    fprintf(stderr, "%d\t\t%.3f\t\t\t%s\n", i, results[i]->prob, results[i]->name);
   }
   fprintf(stderr, "--------------------------------------------------\n");
 

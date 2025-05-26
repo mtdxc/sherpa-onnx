@@ -162,10 +162,8 @@ int32_t main(int32_t argc, char *argv[]) {
     }
   }
 
-  const SherpaOnnxOnlineRecognizer *recognizer =
-      SherpaOnnxCreateOnlineRecognizer(&config);
-  const SherpaOnnxOnlineStream *stream =
-      SherpaOnnxCreateOnlineStream(recognizer);
+  const SherpaOnnxOnlineRecognizer *recognizer = SherpaOnnxCreateOnlineRecognizer(&config);
+  const SherpaOnnxOnlineStream *stream = SherpaOnnxCreateOnlineStream(recognizer);
 
   const SherpaOnnxDisplay *display = SherpaOnnxCreateDisplay(50);
   int32_t segment_id = 0;
@@ -187,8 +185,7 @@ int32_t main(int32_t argc, char *argv[]) {
   int32_t k = 0;
   while (k < wave->num_samples) {
     int32_t start = k;
-    int32_t end =
-        (start + N > wave->num_samples) ? wave->num_samples : (start + N);
+    int32_t end = (start + N > wave->num_samples) ? wave->num_samples : (start + N);
     k += N;
 
     SherpaOnnxOnlineStreamAcceptWaveform(stream, wave->sample_rate,
@@ -197,9 +194,7 @@ int32_t main(int32_t argc, char *argv[]) {
       SherpaOnnxDecodeOnlineStream(recognizer, stream);
     }
 
-    const SherpaOnnxOnlineRecognizerResult *r =
-        SherpaOnnxGetOnlineStreamResult(recognizer, stream);
-
+    const SherpaOnnxOnlineRecognizerResult *r = SherpaOnnxGetOnlineStreamResult(recognizer, stream);
     if (strlen(r->text)) {
       SherpaOnnxPrint(display, segment_id, r->text);
     }
@@ -216,8 +211,7 @@ int32_t main(int32_t argc, char *argv[]) {
 
   // add some tail padding
   float tail_paddings[4800] = {0};  // 0.3 seconds at 16 kHz sample rate
-  SherpaOnnxOnlineStreamAcceptWaveform(stream, wave->sample_rate, tail_paddings,
-                                       4800);
+  SherpaOnnxOnlineStreamAcceptWaveform(stream, wave->sample_rate, tail_paddings, 4800);
 
   SherpaOnnxFreeWave(wave);
 
