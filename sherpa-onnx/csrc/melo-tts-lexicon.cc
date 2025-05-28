@@ -70,14 +70,12 @@ class MeloTtsLexicon::Impl {
 
     {
       auto buf = ReadFile(mgr, tokens);
-
       std::istrstream is(buf.data(), buf.size());
       InitTokens(is);
     }
 
     {
       auto buf = ReadFile(mgr, lexicon);
-
       std::istrstream is(buf.data(), buf.size());
       InitLexicon(is);
     }
@@ -89,14 +87,12 @@ class MeloTtsLexicon::Impl {
       : meta_data_(meta_data), debug_(debug) {
     {
       auto buf = ReadFile(mgr, tokens);
-
       std::istrstream is(buf.data(), buf.size());
       InitTokens(is);
     }
 
     {
       auto buf = ReadFile(mgr, lexicon);
-
       std::istrstream is(buf.data(), buf.size());
       InitLexicon(is);
     }
@@ -134,8 +130,7 @@ class MeloTtsLexicon::Impl {
         SHERPA_ONNX_LOGE("input text: %{public}s", text.c_str());
         SHERPA_ONNX_LOGE("after replacing punctuations: %{public}s", s.c_str());
 
-        SHERPA_ONNX_LOGE("after jieba processing: %{public}s",
-                         os.str().c_str());
+        SHERPA_ONNX_LOGE("after jieba processing: %{public}s", os.str().c_str());
 #else
         SHERPA_ONNX_LOGE("input text: %s", text.c_str());
         SHERPA_ONNX_LOGE("after replacing punctuations: %s", s.c_str());
