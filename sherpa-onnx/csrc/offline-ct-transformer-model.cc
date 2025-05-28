@@ -53,8 +53,7 @@ class OfflineCtTransformerModel::Impl {
 
  private:
   void Init(void *model_data, size_t model_data_length) {
-    sess_ = std::make_unique<Ort::Session>(env_, model_data, model_data_length,
-                                           sess_opts_);
+    sess_ = std::make_unique<Ort::Session>(env_, model_data, model_data_length, sess_opts_);
 
     GetInputNames(sess_.get(), &input_names_, &input_names_ptr_);
 

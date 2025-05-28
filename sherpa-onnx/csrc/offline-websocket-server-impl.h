@@ -188,8 +188,7 @@ class OfflineWebsocketServer {
   asio::io_context &io_work_;
   server server_;
 
-  std::map<connection_hdl, ConnectionDataPtr, std::owner_less<connection_hdl>>
-      connections_;
+  std::map<connection_hdl, ConnectionDataPtr, std::owner_less<connection_hdl>> connections_;
   std::mutex mutex_;
 
   OfflineWebsocketServerConfig config_;

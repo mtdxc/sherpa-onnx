@@ -16,8 +16,7 @@ void OfflineWebsocketDecoderConfig::Register(ParseOptions *po) {
   po->Register("max-batch-size", &max_batch_size,
                "Max batch size for decoding.");
 
-  po->Register(
-      "max-utterance-length", &max_utterance_length,
+  po->Register("max-utterance-length", &max_utterance_length,
       "Max utterance length in seconds. If we receive an utterance "
       "longer than this value, we will reject the connection. "
       "If you have enough memory, you can select a large value for it.");
@@ -35,8 +34,7 @@ void OfflineWebsocketDecoderConfig::Validate() const {
   }
 
   if (max_utterance_length <= 0) {
-    SHERPA_ONNX_LOGE("Expect --max-utterance-length > 0. Given: %f",
-                     max_utterance_length);
+    SHERPA_ONNX_LOGE("Expect --max-utterance-length > 0. Given: %f", max_utterance_length);
     exit(-1);
   }
 }
@@ -57,8 +55,7 @@ void OfflineWebsocketDecoder::Decode() {
     return;
   }
 
-  int32_t size =
-      std::min(static_cast<int32_t>(streams_.size()), config_.max_batch_size);
+  int32_t size = std::min(static_cast<int32_t>(streams_.size()), config_.max_batch_size);
   SHERPA_ONNX_LOGE("size: %d", size);
 
   // We first lock the mutex for streams_, take items from it, and then
@@ -116,8 +113,7 @@ void OfflineWebsocketDecoder::Decode() {
 void OfflineWebsocketServerConfig::Register(ParseOptions *po) {
   decoder_config.Register(po);
   po->Register("log-file", &log_file,
-               "Path to the log file. Logs are "
-               "appended to this file");
+               "Path to the log file. Logs are appended to this file");
 }
 
 void OfflineWebsocketServerConfig::Validate() const {
@@ -204,16 +200,12 @@ void OfflineWebsocketServer::OnMessage(connection_hdl hdl,
         }
 
         connection_data->sample_rate = *reinterpret_cast<const int32_t *>(p);
-
-        connection_data->expected_byte_size =
-            *reinterpret_cast<const int32_t *>(p + 4);
+        connection_data->expected_byte_size = *reinterpret_cast<const int32_t *>(p + 4);
 
         int32_t max_byte_size_ = decoder_.GetConfig().max_utterance_length *
                                  connection_data->sample_rate * sizeof(float);
         if (connection_data->expected_byte_size > max_byte_size_) {
-          float num_samples =
-              connection_data->expected_byte_size / sizeof(float);
-
+          float num_samples = connection_data->expected_byte_size / sizeof(float);
           float duration = num_samples / connection_data->sample_rate;
 
           std::ostringstream os;
@@ -226,12 +218,10 @@ void OfflineWebsocketServer::OnMessage(connection_hdl hdl,
         }
 
         connection_data->data.resize(connection_data->expected_byte_size);
-        std::copy(payload.begin() + 8, payload.end(),
-                  connection_data->data.data());
+        std::copy(payload.begin() + 8, payload.end(), connection_data->data.data());
         connection_data->cur = payload.size() - 8;
       } else {
-        std::copy(payload.begin(), payload.end(),
-                  connection_data->data.data() + connection_data->cur);
+        std::copy(payload.begin(), payload.end(), connection_data->data.data() + connection_data->cur);
         connection_data->cur += payload.size();
       }
 
@@ -265,8 +255,7 @@ void OfflineWebsocketServer::Close(connection_hdl hdl,
   auto con = server_.get_con_from_hdl(hdl);
 
   std::ostringstream os;
-  os << "Closing " << con->get_remote_endpoint() << " with reason: " << reason
-     << "\n";
+  os << "Closing " << con->get_remote_endpoint() << " with reason: " << reason << "\n";
 
   websocketpp::lib::error_code ec;
   server_.close(hdl, code, reason, ec);
