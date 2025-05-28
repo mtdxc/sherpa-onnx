@@ -19,9 +19,8 @@ namespace sherpa_onnx {
 void FeatureExtractorConfig::Register(ParseOptions *po) {
   po->Register("sample-rate", &sampling_rate,
                "Sampling rate of the input waveform. "
-               "Note: You can have a different "
-               "sample rate for the input waveform. We will do resampling "
-               "inside the feature extractor");
+               "Note: You can have a different sample rate for the input waveform. "
+               "We will do resampling inside the feature extractor");
 
   po->Register("feat-dim", &feature_dim,
                "Feature dimension. Must match the one expected by the model. "
@@ -77,36 +76,27 @@ class FeatureExtractor::Impl {
     }
   }
 
-  void AcceptWaveformImpl(int32_t sampling_rate, const float *waveform,
-                          int32_t n) {
+  void AcceptWaveformImpl(int32_t sampling_rate, const float *waveform, int32_t n) {
     std::lock_guard<std::mutex> lock(mutex_);
-
     if (resampler_) {
       if (sampling_rate != resampler_->GetInputSamplingRate()) {
-        SHERPA_ONNX_LOGE(
-            "You changed the input sampling rate!! Expected: %d, given: "
-            "%d",
+        SHERPA_ONNX_LOGE("You changed the input sampling rate!! Expected: %d, given: %d",
             resampler_->GetInputSamplingRate(), sampling_rate);
-        exit(-1);
+        return;
       }
 
       std::vector<float> samples;
       resampler_->Resample(waveform, n, false, &samples);
       if (fbank_) {
-        fbank_->AcceptWaveform(config_.sampling_rate, samples.data(),
-                               samples.size());
+        fbank_->AcceptWaveform(config_.sampling_rate, samples.data(), samples.size());
       } else {
-        mfcc_->AcceptWaveform(config_.sampling_rate, samples.data(),
-                              samples.size());
+        mfcc_->AcceptWaveform(config_.sampling_rate, samples.data(), samples.size());
       }
       return;
     }
 
     if (sampling_rate != config_.sampling_rate) {
-      SHERPA_ONNX_LOGE(
-          "Creating a resampler:\n"
-          "   in_sample_rate: %d\n"
-          "   output_sample_rate: %d\n",
+      SHERPA_ONNX_LOGE("Creating a resampler:%d->%d\n",
           sampling_rate, static_cast<int32_t>(config_.sampling_rate));
 
       float min_freq = std::min<int32_t>(sampling_rate, config_.sampling_rate);
@@ -120,11 +110,9 @@ class FeatureExtractor::Impl {
       std::vector<float> samples;
       resampler_->Resample(waveform, n, false, &samples);
       if (fbank_) {
-        fbank_->AcceptWaveform(config_.sampling_rate, samples.data(),
-                               samples.size());
+        fbank_->AcceptWaveform(config_.sampling_rate, samples.data(), samples.size());
       } else {
-        mfcc_->AcceptWaveform(config_.sampling_rate, samples.data(),
-                              samples.size());
+        mfcc_->AcceptWaveform(config_.sampling_rate, samples.data(), samples.size());
       }
       return;
     }

@@ -37,8 +37,7 @@ static int32_t ProgressCallback(const float *samples, int32_t num_samples,
 int32_t main(int32_t argc, char *argv[]) {
   SherpaOnnxOfflineTtsConfig config;
   memset(&config, 0, sizeof(config));
-  config.model.matcha.acoustic_model =
-      "./matcha-icefall-zh-baker/model-steps-3.onnx";
+  config.model.matcha.acoustic_model = "./matcha-icefall-zh-baker/model-steps-3.onnx";
   config.model.matcha.vocoder = "./vocos-22khz-univ.onnx";
   config.model.matcha.lexicon = "./matcha-icefall-zh-baker/lexicon.txt";
   config.model.matcha.tokens = "./matcha-icefall-zh-baker/tokens.txt";

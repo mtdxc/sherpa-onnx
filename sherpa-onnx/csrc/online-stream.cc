@@ -14,8 +14,7 @@ namespace sherpa_onnx {
 
 class OnlineStream::Impl {
  public:
-  explicit Impl(const FeatureExtractorConfig &config,
-                ContextGraphPtr context_graph)
+  explicit Impl(const FeatureExtractorConfig &config, ContextGraphPtr context_graph)
       : feat_extractor_(config), context_graph_(std::move(context_graph)) {}
 
   void AcceptWaveform(int32_t sampling_rate, const float *waveform, int32_t n) {
@@ -59,8 +58,7 @@ class OnlineStream::Impl {
     if (remove_duplicates) {
       if (!prev_keyword_result_.timestamps.empty() &&
           !keyword_result_.timestamps.empty() &&
-          keyword_result_.timestamps[0] <=
-              prev_keyword_result_.timestamps.back()) {
+          keyword_result_.timestamps[0] <= prev_keyword_result_.timestamps.back()) {
         return empty_keyword_result_;
       } else {
         prev_keyword_result_ = keyword_result_;
