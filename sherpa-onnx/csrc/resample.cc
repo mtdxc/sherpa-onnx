@@ -87,9 +87,12 @@ LinearResample::LinearResample(int32_t samp_rate_in_hz,
       samp_rate_out_(samp_rate_out_hz),
       filter_cutoff_(filter_cutoff_hz),
       num_zeros_(num_zeros) {
+  if (num_zeros <=0) num_zeros = num_zeros_ = 6;
+  int32_t min_hz = std::min(samp_rate_in_hz, samp_rate_out_hz);
+  if (filter_cutoff_hz <= 0)
+    filter_cutoff_hz = filter_cutoff_ = 0.99 * 0.5 * min_hz;
   assert(samp_rate_in_hz > 0.0 && samp_rate_out_hz > 0.0 &&
-         filter_cutoff_hz > 0.0 && filter_cutoff_hz * 2 <= samp_rate_in_hz &&
-         filter_cutoff_hz * 2 <= samp_rate_out_hz && num_zeros > 0);
+         filter_cutoff_hz > 0.0 && filter_cutoff_hz * 2 <= min_hz);
 
   // base_freq is the frequency of the repeating unit, which is the gcd
   // of the input frequencies.
