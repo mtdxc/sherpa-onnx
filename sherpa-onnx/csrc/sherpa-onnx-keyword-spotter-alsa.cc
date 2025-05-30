@@ -77,12 +77,11 @@ as the device_name.
   }
   sherpa_onnx::KeywordSpotter spotter(config);
 
-  int32_t expected_sample_rate = config.feat_config.sampling_rate;
-
   std::string device_name = po.GetArg(1);
   sherpa_onnx::Alsa alsa(device_name.c_str());
   fprintf(stderr, "Use recording device: %s\n", device_name.c_str());
 
+  int32_t expected_sample_rate = config.feat_config.sampling_rate;
   if (alsa.GetExpectedSampleRate() != expected_sample_rate) {
     fprintf(stderr, "sample rate: %d != %d\n", alsa.GetExpectedSampleRate(),
             expected_sample_rate);

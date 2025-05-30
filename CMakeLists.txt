@@ -401,7 +401,7 @@ if(SHERPA_ONNX_ENABLE_WEBSOCKET)
     FetchContent_Populate(libhv)
   endif()
   message(STATUS "websocketpp is downloaded to ${libhv_SOURCE_DIR}")
-  set(WITH_OPENSSL ON CACHE INTERNAL "")
+  #set(WITH_OPENSSL ON CACHE INTERNAL "")
   add_subdirectory(${libhv_SOURCE_DIR} ${libhv_BINARY_DIR} EXCLUDE_FROM_ALL)
   include_directories(${libhv_SOURCE_DIR}/include)
 
