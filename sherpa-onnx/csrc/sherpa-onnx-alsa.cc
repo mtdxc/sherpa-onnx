@@ -78,12 +78,11 @@ as the device_name.
   }
   sherpa_onnx::OnlineRecognizer recognizer(config);
 
-  int32_t expected_sample_rate = config.feat_config.sampling_rate;
-
   std::string device_name = po.GetArg(1);
   sherpa_onnx::Alsa alsa(device_name.c_str());
   fprintf(stderr, "Use recording device: %s\n", device_name.c_str());
 
+  int32_t expected_sample_rate = config.feat_config.sampling_rate;
   if (alsa.GetExpectedSampleRate() != expected_sample_rate) {
     fprintf(stderr, "sample rate: %d != %d\n", alsa.GetExpectedSampleRate(),
             expected_sample_rate);
@@ -119,10 +118,8 @@ as the device_name.
       // For streaming paraformer models, since it has a large right chunk size
       // we need to pad it on endpointing so that the last character
       // can be recognized
-      std::vector<float> tail_paddings(
-          static_cast<int>(1.0 * expected_sample_rate));
-      stream->AcceptWaveform(expected_sample_rate, tail_paddings.data(),
-                             tail_paddings.size());
+      static std::vector<float> tail_paddings(static_cast<int>(1.0 * expected_sample_rate));
+      stream->AcceptWaveform(expected_sample_rate, tail_paddings.data(), tail_paddings.size());
       while (recognizer.IsReady(stream.get())) {
         recognizer.DecodeStream(stream.get());
       }
