@@ -384,8 +384,29 @@ if(SHERPA_ONNX_ENABLE_TESTS)
 endif()
 
 if(SHERPA_ONNX_ENABLE_WEBSOCKET)
-  include(websocketpp)
-  include(asio)
+  include(FetchContent)
+  set(libhv_URL  "https://github.com/ithewei/libhv/archive/refs/tags/v1.3.3.tar.gz")
+  set(libhv_HASH "SHA256=dfeae857eb5d167820d0800161b6c4199d1f771c05a04e6dd0adc22ed3fd19ae")
+  
+  FetchContent_Declare(libhv
+    URL 
+      ${libhv_URL}
+    URL_HASH
+      ${libhv_HASH}
+    )
+
+  FetchContent_GetProperties(libhv)
+  if(NOT libhv_POPULATED)
+    message(STATUS "Downloading libhv")
+    FetchContent_Populate(libhv)
+  endif()
+  message(STATUS "websocketpp is downloaded to ${libhv_SOURCE_DIR}")
+  set(WITH_OPENSSL ON CACHE INTERNAL "")
+  add_subdirectory(${libhv_SOURCE_DIR} ${libhv_BINARY_DIR} EXCLUDE_FROM_ALL)
+  include_directories(${libhv_SOURCE_DIR}/include)
+
+  #include(websocketpp)
+  #include(asio)
 endif()
 
 if(SHERPA_ONNX_ENABLE_TTS)

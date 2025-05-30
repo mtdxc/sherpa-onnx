@@ -16,21 +16,19 @@
 #include <utility>
 #include <vector>
 
-#include "asio.hpp"
 #include "sherpa-onnx/csrc/online-recognizer.h"
 #include "sherpa-onnx/csrc/online-stream.h"
 #include "sherpa-onnx/csrc/parse-options.h"
 #include "sherpa-onnx/csrc/tee-stream.h"
-#include "websocketpp/config/asio_no_tls.hpp"  // TODO(fangjun): support TLS
-#include "websocketpp/server.hpp"
-using server = websocketpp::server<websocketpp::config::asio>;
-using connection_hdl = websocketpp::connection_hdl;
+#include "hv/WebSocketChannel.h"  // NOLINT
+#include "hv/WebSocketServer.h"  // NOLINT
+#include "hv/EventLoopThreadPool.h"
+using connection_hdl = WebSocketChannelPtr;
 
 namespace sherpa_onnx {
 
 struct Connection {
   // handle to the connection. We can use it to send messages to the client
-  connection_hdl hdl;
   std::shared_ptr<OnlineStream> s;
 
   // set it to true when InputFinished() is called
@@ -50,8 +48,8 @@ struct Connection {
   std::deque<std::vector<float>> samples;
 
   Connection() = default;
-  Connection(connection_hdl hdl, std::shared_ptr<OnlineStream> s)
-      : hdl(hdl), s(s), last_active(std::chrono::steady_clock::now()) {}
+  Connection(std::shared_ptr<OnlineStream> s)
+      : s(s), last_active(std::chrono::steady_clock::now()) {}
 };
 
 struct OnlineWebsocketDecoderConfig {
@@ -90,7 +88,7 @@ class OnlineWebsocketDecoder {
   void Run();
 
  private:
-  void ProcessConnections(const asio::error_code &ec);
+  void ProcessConnections();
 
   /** It is called by one of the worker thread.
    */
@@ -100,22 +98,20 @@ class OnlineWebsocketDecoder {
   OnlineWebsocketServer *server_;  // not owned
   std::unique_ptr<OnlineRecognizer> recognizer_;
   OnlineWebsocketDecoderConfig config_;
-  asio::steady_timer timer_;
+  hv::TimerID timer_;
 
   // It protects `connections_`, `ready_connections_`, and `active_`
   std::mutex mutex_;
 
-  std::map<connection_hdl, std::shared_ptr<Connection>,
-           std::owner_less<connection_hdl>>
-      connections_;
+  std::set<connection_hdl> connections_;
 
   // Whenever a connection has enough feature frames for decoding, we put
   // it in this queue
-  std::deque<std::shared_ptr<Connection>> ready_connections_;
+  std::deque<connection_hdl> ready_connections_;
 
   // If we are decoding a stream, we put it in the active_ set so that
   // only one thread can decode a stream at a time.
-  std::set<connection_hdl, std::owner_less<connection_hdl>> active_;
+  std::set<connection_hdl> active_;
 };
 
 struct OnlineWebsocketServerConfig {
@@ -127,26 +123,19 @@ struct OnlineWebsocketServerConfig {
   void Validate() const;
 };
 
-class OnlineWebsocketServer {
+class OnlineWebsocketServer : public WebSocketService {
  public:
-  explicit OnlineWebsocketServer(asio::io_context &io_conn,  // NOLINT
-                                 asio::io_context &io_work,  // NOLINT
+  explicit OnlineWebsocketServer(hv::EventLoopThreadPool* io_work,  // NOLINT
                                  const OnlineWebsocketServerConfig &config);
 
   void Run(uint16_t port);
 
   const OnlineWebsocketServerConfig &GetConfig() const { return config_; }
-  asio::io_context &GetConnectionContext() { return io_conn_; }
-  asio::io_context &GetWorkContext() { return io_work_; }
-  server &GetServer() { return server_; }
-
-  void Send(connection_hdl hdl, const std::string &text);
+  hv::EventLoopThreadPool* GetWorkContext() { return io_work_; }
 
   bool Contains(connection_hdl hdl) const;
 
  private:
-  void SetupLog();
-
   // When a websocket client is connected, it will invoke this method
   // (Not for HTTP)
   void OnOpen(connection_hdl hdl);
@@ -154,17 +143,11 @@ class OnlineWebsocketServer {
   // When a websocket client is disconnected, it will invoke this method
   void OnClose(connection_hdl hdl);
 
-  void OnMessage(connection_hdl hdl, server::message_ptr msg);
-
-  // Close a websocket connection with given code and reason
-  void Close(connection_hdl hdl, websocketpp::close::status::value code,
-             const std::string &reason);
+  void OnMessage(connection_hdl hdl, const std::string& msg);
 
  private:
   OnlineWebsocketServerConfig config_;
-  asio::io_context &io_conn_;
-  asio::io_context &io_work_;
-  server server_;
+  hv::EventLoopThreadPool *io_work_;
 
   std::ofstream log_;
   sherpa_onnx::TeeStream tee_;
