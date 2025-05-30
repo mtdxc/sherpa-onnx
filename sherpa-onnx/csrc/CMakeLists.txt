@@ -562,12 +562,12 @@ if(SHERPA_ONNX_ENABLE_WEBSOCKET AND SHERPA_ONNX_ENABLE_BINARY)
     online-websocket-server-impl.cc
     online-websocket-server.cc
   )
-  target_link_libraries(sherpa-onnx-online-websocket-server sherpa-onnx-core)
+  target_link_libraries(sherpa-onnx-online-websocket-server sherpa-onnx-core hv)
 
   add_executable(sherpa-onnx-online-websocket-client
     online-websocket-client.cc
   )
-  target_link_libraries(sherpa-onnx-online-websocket-client sherpa-onnx-core)
+  target_link_libraries(sherpa-onnx-online-websocket-client sherpa-onnx-core hv)
 
   if(NOT WIN32)
     target_compile_options(sherpa-onnx-online-websocket-server PRIVATE -Wno-deprecated-declarations)
@@ -580,7 +580,7 @@ if(SHERPA_ONNX_ENABLE_WEBSOCKET AND SHERPA_ONNX_ENABLE_BINARY)
     offline-websocket-server-impl.cc
     offline-websocket-server.cc
   )
-  target_link_libraries(sherpa-onnx-offline-websocket-server sherpa-onnx-core)
+  target_link_libraries(sherpa-onnx-offline-websocket-server sherpa-onnx-core hv)
 
   if(NOT WIN32)
     target_compile_options(sherpa-onnx-offline-websocket-server PRIVATE -Wno-deprecated-declarations)

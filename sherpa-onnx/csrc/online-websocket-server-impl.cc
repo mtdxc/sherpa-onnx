@@ -45,24 +45,19 @@ void OnlineWebsocketServerConfig::Validate() const {
 
 OnlineWebsocketDecoder::OnlineWebsocketDecoder(OnlineWebsocketServer *server)
     : server_(server),
-      config_(server->GetConfig().decoder_config),
-      timer_(server->GetWorkContext()) {
+      config_(server->GetConfig().decoder_config) {
   recognizer_ = std::make_unique<OnlineRecognizer>(config_.recognizer_config);
 }
 
-std::shared_ptr<Connection> OnlineWebsocketDecoder::GetOrCreateConnection(
-    connection_hdl hdl) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  auto it = connections_.find(hdl);
-  if (it != connections_.end()) {
-    return it->second;
-  } else {
-    // create a new connection
-    std::shared_ptr<OnlineStream> s = recognizer_->CreateStream();
-    auto c = std::make_shared<Connection>(hdl, s);
-    connections_.insert({hdl, c});
-    return c;
+std::shared_ptr<Connection> OnlineWebsocketDecoder::GetOrCreateConnection(WebSocketChannelPtr hdl) {
+  auto ret = hdl->getContextPtr<Connection>();
+  if (!ret) {
+    ret = std::make_shared<Connection>(recognizer_->CreateStream());
+    hdl->setContextPtr(ret);
   }
+  std::lock_guard<std::mutex> lock(mutex_);
+  connections_.insert(hdl);
+  return ret;
 }
 
 void OnlineWebsocketDecoder::AcceptWaveform(std::shared_ptr<Connection> c) {
@@ -101,25 +96,16 @@ void OnlineWebsocketDecoder::Warmup() const {
 }
 
 void OnlineWebsocketDecoder::Run() {
-  timer_.expires_after(std::chrono::milliseconds(config_.loop_interval_ms));
-
-  timer_.async_wait(
-      [this](const asio::error_code &ec) { ProcessConnections(ec); });
+  timer_ = hv::setInterval(config_.loop_interval_ms,
+                       [this](hv::TimerID id) { ProcessConnections(); });
 }
 
-void OnlineWebsocketDecoder::ProcessConnections(const asio::error_code &ec) {
-  if (ec) {
-    SHERPA_ONNX_LOG(FATAL) << "The decoder loop is aborted!";
-  }
-
+void OnlineWebsocketDecoder::ProcessConnections() {
   std::lock_guard<std::mutex> lock(mutex_);
   std::vector<connection_hdl> to_remove;
-  for (auto &p : connections_) {
-    auto hdl = p.first;
-    auto c = p.second;
-
+  for (auto hdl : connections_) {
     // The order of `if` below matters!
-    if (!server_->Contains(hdl)) {
+    if (hdl->isClosed()) {
       // If the connection is disconnected, we stop processing it
       to_remove.push_back(hdl);
       continue;
@@ -130,6 +116,7 @@ void OnlineWebsocketDecoder::ProcessConnections(const asio::error_code &ec) {
       continue;
     }
 
+    auto c = hdl->getContextPtr<Connection>();
     if (!recognizer_->IsReady(c->s.get()) && !c->eof) {
       // this stream has not enough frames to decode, so skip it
       continue;
@@ -137,9 +124,7 @@ void OnlineWebsocketDecoder::ProcessConnections(const asio::error_code &ec) {
 
     if (!recognizer_->IsReady(c->s.get()) && c->eof) {
       // We won't receive samples from the client, so send a Done! to client
-
-      asio::post(server_->GetWorkContext(),
-                 [this, hdl = c->hdl]() { server_->Send(hdl, "Done!"); });
+      hdl->send("Done!");
 
       to_remove.push_back(hdl);
       continue;
@@ -150,10 +135,10 @@ void OnlineWebsocketDecoder::ProcessConnections(const asio::error_code &ec) {
 
     // this stream has enough frames and is currently not processed by any
     // threads, so put it into the ready queue
-    ready_connections_.push_back(c);
+    ready_connections_.push_back(hdl);
 
     // In `Decode()`, it will remove hdl from `active_`
-    active_.insert(c->hdl);
+    active_.insert(hdl);
   }
 
   for (auto hdl : to_remove) {
@@ -161,14 +146,8 @@ void OnlineWebsocketDecoder::ProcessConnections(const asio::error_code &ec) {
   }
 
   if (!ready_connections_.empty()) {
-    asio::post(server_->GetWorkContext(), [this]() { Decode(); });
+    server_->GetWorkContext()->loop()->runInLoop([this]() { Decode(); });
   }
-
-  // Schedule another call
-  timer_.expires_after(std::chrono::milliseconds(config_.loop_interval_ms));
-
-  timer_.async_wait(
-      [this](const asio::error_code &ec) { ProcessConnections(ec); });
 }
 
 void OnlineWebsocketDecoder::Decode() {
@@ -179,75 +158,67 @@ void OnlineWebsocketDecoder::Decode() {
     return;
   }
 
-  std::vector<std::shared_ptr<Connection>> c_vec;
+  std::vector<connection_hdl> c_vec;
   std::vector<OnlineStream *> s_vec;
   while (!ready_connections_.empty() &&
          static_cast<int32_t>(s_vec.size()) < config_.max_batch_size) {
-    auto c = ready_connections_.front();
+    auto hdl = ready_connections_.front();
     ready_connections_.pop_front();
-
-    c_vec.push_back(c);
-    s_vec.push_back(c->s.get());
+    if (auto c = hdl->getContextPtr<Connection>()) {
+      s_vec.push_back(c->s.get());
+      c_vec.push_back(hdl);
+    }
   }
 
   if (!ready_connections_.empty()) {
     // there are too many ready connections but this thread can only handle
     // max_batch_size connections at a time, so we schedule another call
     // to Decode() and let other threads to process the ready connections
-    asio::post(server_->GetWorkContext(), [this]() { Decode(); });
+    server_->GetWorkContext()->loop()->runInLoop([this]() { Decode(); });
   }
 
   lock.unlock();
   recognizer_->DecodeStreams(s_vec.data(), s_vec.size());
   lock.lock();
 
-  for (auto c : c_vec) {
-    auto result = recognizer_->GetResult(c->s.get());
-    if (recognizer_->IsEndpoint(c->s.get())) {
+  for (int i = 0; i < s_vec.size();  i++) {
+    auto s = s_vec[i];
+    auto result = recognizer_->GetResult(s);
+    if (recognizer_->IsEndpoint(s)) {
       result.is_final = true;
-      recognizer_->Reset(c->s.get());
+      recognizer_->Reset(s);
     }
-
-    if (!recognizer_->IsReady(c->s.get()) && c->eof) {
+    auto c = c_vec[i]; 
+    if (!recognizer_->IsReady(s) && c->getContextPtr<Connection>()->eof) {
       result.is_final = true;
       result.is_eof = true;
     }
-
-    asio::post(server_->GetConnectionContext(),
-               [this, hdl = c->hdl, str = result.AsJsonString()]() {
-                 server_->Send(hdl, str);
-               });
-    active_.erase(c->hdl);
+    c->send(result.AsJsonString());
+    active_.erase(c);
   }
 }
 
 OnlineWebsocketServer::OnlineWebsocketServer(
-    asio::io_context &io_conn, asio::io_context &io_work,
+    hv::EventLoopThreadPool* io_work,
     const OnlineWebsocketServerConfig &config)
     : config_(config),
-      io_conn_(io_conn),
       io_work_(io_work),
       log_(config.log_file, std::ios::app),
       tee_(std::cout, log_),
       decoder_(this) {
-  SetupLog();
-
-  server_.init_asio(&io_conn_);
-
-  server_.set_open_handler([this](connection_hdl hdl) { OnOpen(hdl); });
-
-  server_.set_close_handler([this](connection_hdl hdl) { OnClose(hdl); });
-
-  server_.set_message_handler(
-      [this](connection_hdl hdl, server::message_ptr msg) {
-        OnMessage(hdl, msg);
-      });
+  onclose = [this](const WebSocketChannelPtr & ch) {OnClose(ch); };
+  onopen = [this](const WebSocketChannelPtr &ch, const HttpRequestPtr &) {
+    OnOpen(ch);
+  };
+  onmessage = [this](const WebSocketChannelPtr &ch, const std::string &msg) {
+    OnMessage(ch, msg);
+  };
 }
 
 void OnlineWebsocketServer::Run(uint16_t port) {
-  server_.set_reuse_addr(true);
-  server_.listen(asio::ip::tcp::v4(), port);
-  server_.start_accept();
+  //server_.set_reuse_addr(true);
+  //server_.listen(asio::ip::tcp::v4(), port);
+  //server_.start_accept();
   auto recognizer_config = config_.decoder_config.recognizer_config;
   int32_t warm_up = recognizer_config.model_config.warm_up;
   const std::string &model_type = recognizer_config.model_config.model_type;
@@ -269,35 +240,12 @@ void OnlineWebsocketServer::Run(uint16_t port) {
   decoder_.Run();
 }
 
-void OnlineWebsocketServer::SetupLog() {
-  server_.clear_access_channels(websocketpp::log::alevel::all);
-  // server_.set_access_channels(websocketpp::log::alevel::connect);
-  // server_.set_access_channels(websocketpp::log::alevel::disconnect);
-
-  // So that it also prints to std::cout and std::cerr
-  server_.get_alog().set_ostream(&tee_);
-  server_.get_elog().set_ostream(&tee_);
-}
-
-void OnlineWebsocketServer::Send(connection_hdl hdl, const std::string &text) {
-  websocketpp::lib::error_code ec;
-  if (!Contains(hdl)) {
-    return;
-  }
-
-  server_.send(hdl, text, websocketpp::frame::opcode::text, ec);
-  if (ec) {
-    server_.get_alog().write(websocketpp::log::alevel::app, ec.message());
-  }
-}
-
 void OnlineWebsocketServer::OnOpen(connection_hdl hdl) {
   std::lock_guard<std::mutex> lock(mutex_);
   connections_.insert(hdl);
 
   std::ostringstream os;
-  os << "New connection: "
-     << server_.get_con_from_hdl(hdl)->get_remote_endpoint() << ". "
+  os << "New connection: " << hdl->peeraddr()
      << "Number of active connections: " << connections_.size() << ".\n";
   SHERPA_ONNX_LOG(INFO) << os.str();
 }
@@ -306,8 +254,7 @@ void OnlineWebsocketServer::OnClose(connection_hdl hdl) {
   std::lock_guard<std::mutex> lock(mutex_);
   connections_.erase(hdl);
 
-  SHERPA_ONNX_LOG(INFO) << "Number of active connections: "
-                        << connections_.size() << "\n";
+  SHERPA_ONNX_LOG(INFO) << "Number of active connections: " << connections_.size() << "\n";
 }
 
 bool OnlineWebsocketServer::Contains(connection_hdl hdl) const {
@@ -315,19 +262,16 @@ bool OnlineWebsocketServer::Contains(connection_hdl hdl) const {
   return connections_.count(hdl);
 }
 
-void OnlineWebsocketServer::OnMessage(connection_hdl hdl,
-                                      server::message_ptr msg) {
+void OnlineWebsocketServer::OnMessage(connection_hdl hdl, const std::string &payload) {
   auto c = decoder_.GetOrCreateConnection(hdl);
 
-  const std::string &payload = msg->get_payload();
-
-  switch (msg->get_opcode()) {
-    case websocketpp::frame::opcode::text:
+  switch (hdl->opcode) {
+    case WS_OPCODE_TEXT:
       if (payload == "Done") {
-        asio::post(io_work_, [this, c]() { decoder_.InputFinished(c); });
+        io_work_->loop()->runInLoop([this, c]() { decoder_.InputFinished(c); });
       }
       break;
-    case websocketpp::frame::opcode::binary: {
+    case WS_OPCODE_BINARY: {
       auto p = reinterpret_cast<const float *>(payload.data());
       int32_t num_samples = payload.size() / sizeof(float);
       std::vector<float> samples(p, p + num_samples);
@@ -337,7 +281,7 @@ void OnlineWebsocketServer::OnMessage(connection_hdl hdl,
         c->samples.push_back(std::move(samples));
       }
 
-      asio::post(io_work_, [this, c]() { decoder_.AcceptWaveform(c); });
+      io_work_->loop()->runInLoop([this, c]() { decoder_.AcceptWaveform(c); });
       break;
     }
     default:
@@ -345,22 +289,5 @@ void OnlineWebsocketServer::OnMessage(connection_hdl hdl,
   }
 }
 
-void OnlineWebsocketServer::Close(connection_hdl hdl,
-                                  websocketpp::close::status::value code,
-                                  const std::string &reason) {
-  auto con = server_.get_con_from_hdl(hdl);
-
-  std::ostringstream os;
-  os << "Closing " << con->get_remote_endpoint() << " with reason: " << reason
-     << "\n";
-
-  websocketpp::lib::error_code ec;
-  server_.close(hdl, code, reason, ec);
-  if (ec) {
-    os << "Failed to close" << con->get_remote_endpoint() << ". "
-       << ec.message() << "\n";
-  }
-  server_.get_alog().write(websocketpp::log::alevel::app, os.str());
-}
 
 }  // namespace sherpa_onnx
