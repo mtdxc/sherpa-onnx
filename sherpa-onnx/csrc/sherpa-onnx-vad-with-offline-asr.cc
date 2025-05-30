@@ -171,12 +171,7 @@ for a list of pre-trained models to download.
 
   if (sampling_rate != 16000) {
     fprintf(stderr, "Resampling from %d Hz to 16000 Hz", sampling_rate);
-    float min_freq = std::min<int32_t>(sampling_rate, 16000);
-    float lowpass_cutoff = 0.99 * 0.5 * min_freq;
-
-    int32_t lowpass_filter_width = 6;
-    auto resampler = std::make_unique<sherpa_onnx::LinearResample>(
-        sampling_rate, 16000, lowpass_cutoff, lowpass_filter_width);
+    auto resampler = std::make_unique<sherpa_onnx::LinearResample>(sampling_rate, 16000);
     std::vector<float> out_samples;
     resampler->Resample(samples.data(), samples.size(), true, &out_samples);
     samples = std::move(out_samples);

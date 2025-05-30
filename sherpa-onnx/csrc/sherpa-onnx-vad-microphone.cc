@@ -122,12 +122,7 @@ wget https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/siler
 
   std::unique_ptr<sherpa_onnx::LinearResample> resampler;
   if (mic_sample_rate != sample_rate) {
-    float min_freq = std::min(mic_sample_rate, sample_rate);
-    float lowpass_cutoff = 0.99 * 0.5 * min_freq;
-
-    int32_t lowpass_filter_width = 6;
-    resampler = std::make_unique<sherpa_onnx::LinearResample>(
-        mic_sample_rate, sample_rate, lowpass_cutoff, lowpass_filter_width);
+    resampler = std::make_unique<sherpa_onnx::LinearResample>(mic_sample_rate, sample_rate);
   }
 
   PaStream *stream;
