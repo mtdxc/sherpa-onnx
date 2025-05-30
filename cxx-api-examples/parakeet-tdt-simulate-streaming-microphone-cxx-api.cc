@@ -198,10 +198,7 @@ int32_t main() {
 
     auto current_time = std::chrono::steady_clock::now();
     const float elapsed_seconds =
-        std::chrono::duration_cast<std::chrono::milliseconds>(current_time -
-                                                              started_time)
-            .count() /
-        1000.;
+        std::chrono::duration_cast<std::chrono::milliseconds>(current_time - started_time).count() / 1000.;
 
     if (speech_started && elapsed_seconds > 0.2) {
       OfflineStream stream = recognizer.CreateStream();

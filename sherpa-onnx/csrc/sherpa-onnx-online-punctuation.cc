@@ -62,9 +62,7 @@ The output text should look like below:
   fprintf(stderr, "Done\n");
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
 
   fprintf(stderr, "Num threads: %d\n", config.model.num_threads);
   fprintf(stderr, "Elapsed seconds: %.3f s\n", elapsed_seconds);
