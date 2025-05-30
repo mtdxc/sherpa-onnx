@@ -2,7 +2,7 @@
 //
 // Copyright (c)  2022-2023  Xiaomi Corporation
 
-#include "asio.hpp"
+#include "hv/WebSocketServer.h"
 #include "sherpa-onnx/csrc/macros.h"
 #include "sherpa-onnx/csrc/online-websocket-server-impl.h"
 #include "sherpa-onnx/csrc/parse-options.h"
@@ -53,6 +53,10 @@ int32_t main(int32_t argc, char *argv[]) {
 
   po.Register("port", &port, "The port on which the server will listen.");
 
+  std::string s_certfile, s_keyfile;
+  po.Register("cert", &s_certfile, "ssl cert file.");
+  po.Register("key", &s_keyfile, "ssl key file.");
+
   config.Register(&po);
 
   if (argc == 1) {
@@ -70,40 +74,36 @@ int32_t main(int32_t argc, char *argv[]) {
 
   config.Validate();
 
-  asio::io_context io_conn;  // for network connections
-  asio::io_context io_work;  // for neural network and decoding
+  hv::EventLoopThreadPool io_work;
+  io_work.setThreadNum(num_work_threads);
+  sherpa_onnx::OnlineWebsocketServer service(&io_work, config);
+  hv::WebSocketServer server;
+  server.setThreadNum(num_io_threads);
+  server.port = port;
 
-  sherpa_onnx::OnlineWebsocketServer server(io_conn, io_work, config);
-  server.Run(port);
+  if (s_certfile.length()) {
+    server.https_port = port + 1;
+    hssl_ctx_opt_t param;
+    memset(&param, 0, sizeof(param));
+    param.crt_file = s_certfile.c_str();
+    param.key_file = s_keyfile.c_str();
+    param.endpoint = HSSL_SERVER;
+    if (server.newSslCtx(&param) != 0) {
+      fprintf(stderr, "new SSL_CTX failed!\n");
+      return -20;
+    }
+  }
+
+  service.Run(port);
+  server.registerWebSocketService(&service);
+  server.start();
 
   SHERPA_ONNX_LOGE("Started!");
   SHERPA_ONNX_LOGE("Listening on: %d", port);
   SHERPA_ONNX_LOGE("Number of work threads: %d", num_work_threads);
 
-  // give some work to do for the io_work pool
-  auto work_guard = asio::make_work_guard(io_work);
-
-  std::vector<std::thread> io_threads;
-
-  // decrement since the main thread is also used for network communications
-  for (int32_t i = 0; i < num_io_threads - 1; ++i) {
-    io_threads.emplace_back([&io_conn]() { io_conn.run(); });
-  }
-
-  std::vector<std::thread> work_threads;
-  for (int32_t i = 0; i < num_work_threads; ++i) {
-    work_threads.emplace_back([&io_work]() { io_work.run(); });
-  }
-
-  io_conn.run();
-
-  for (auto &t : io_threads) {
-    t.join();
-  }
-
-  for (auto &t : work_threads) {
-    t.join();
-  }
+  printf("presee q to exit\n");
+  while (getchar() != 'q');
 
   return 0;
 }

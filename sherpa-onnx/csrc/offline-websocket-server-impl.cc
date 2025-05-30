@@ -40,8 +40,8 @@ void OfflineWebsocketDecoderConfig::Validate() const {
 }
 
 OfflineWebsocketDecoder::OfflineWebsocketDecoder(OfflineWebsocketServer *server)
-    : config_(server->GetConfig().decoder_config),
-      server_(server),
+    : server_(server),
+      config_(server->GetConfig().decoder_config),
       recognizer_(config_.recognizer_config) {}
 
 void OfflineWebsocketDecoder::Push(connection_hdl hdl, ConnectionDataPtr d) {
@@ -63,27 +63,19 @@ void OfflineWebsocketDecoder::Decode() {
   // access hdl and connection_data later.
   std::vector<connection_hdl> handles(size);
 
-  // Store connection_data here to prevent the data from being freed
-  // while we are still using it.
-  std::vector<ConnectionDataPtr> connection_data(size);
-
-  std::vector<const float *> samples(size);
-  std::vector<int32_t> samples_length(size);
   std::vector<std::unique_ptr<OfflineStream>> ss(size);
   std::vector<OfflineStream *> p_ss(size);
 
   for (int32_t i = 0; i != size; ++i) {
     auto &p = streams_.front();
     handles[i] = p.first;
-    connection_data[i] = p.second;
+    auto c = p.second;
     streams_.pop_front();
 
-    auto sample_rate = connection_data[i]->sample_rate;
-    auto samples =
-        reinterpret_cast<const float *>(&connection_data[i]->data[0]);
-    auto num_samples = connection_data[i]->expected_byte_size / sizeof(float);
+    auto samples = reinterpret_cast<const float *>(&c->data[0]);
+    auto num_samples = c->expected_byte_size / sizeof(float);
     auto s = recognizer_.CreateStream();
-    s->AcceptWaveform(sample_rate, samples, num_samples);
+    s->AcceptWaveform(c->sample_rate, samples, num_samples);
 
     ss[i] = std::move(s);
     p_ss[i] = ss[i].get();
@@ -96,17 +88,8 @@ void OfflineWebsocketDecoder::Decode() {
 
   for (int32_t i = 0; i != size; ++i) {
     connection_hdl hdl = handles[i];
-    asio::post(server_->GetConnectionContext(),
-               [this, hdl, result = ss[i]->GetResult()]() {
-                 websocketpp::lib::error_code ec;
-                 server_->GetServer().send(hdl, result.AsJsonString(),
-                                           websocketpp::frame::opcode::text,
-                                           ec);
-                 if (ec) {
-                   server_->GetServer().get_alog().write(
-                       websocketpp::log::alevel::app, ec.message());
-                 }
-               });
+    auto result = ss[i]->GetResult();
+    hdl->send(result.AsJsonString());
   }
 }
 
@@ -121,81 +104,47 @@ void OfflineWebsocketServerConfig::Validate() const {
 }
 
 OfflineWebsocketServer::OfflineWebsocketServer(
-    asio::io_context &io_conn,  // NOLINT
-    asio::io_context &io_work,  // NOLINT
+    hv::EventLoopThreadPool* io_work,  // NOLINT
     const OfflineWebsocketServerConfig &config)
-    : io_conn_(io_conn),
-      io_work_(io_work),
+    : io_work_(io_work),
       config_(config),
       log_(config.log_file, std::ios::app),
       tee_(std::cout, log_),
       decoder_(this) {
-  SetupLog();
-
-  server_.init_asio(&io_conn_);
-
-  server_.set_open_handler([this](connection_hdl hdl) { OnOpen(hdl); });
-
-  server_.set_close_handler([this](connection_hdl hdl) { OnClose(hdl); });
-
-  server_.set_message_handler(
-      [this](connection_hdl hdl, server::message_ptr msg) {
-        OnMessage(hdl, msg);
-      });
-}
-
-void OfflineWebsocketServer::SetupLog() {
-  server_.clear_access_channels(websocketpp::log::alevel::all);
-  server_.set_access_channels(websocketpp::log::alevel::connect);
-  server_.set_access_channels(websocketpp::log::alevel::disconnect);
-
-  // So that it also prints to std::cout and std::cerr
-  server_.get_alog().set_ostream(&tee_);
-  server_.get_elog().set_ostream(&tee_);
+  onopen = [this](const WebSocketChannelPtr& hdl, const HttpRequestPtr&) {OnOpen(hdl); };
+  onclose = [this](const WebSocketChannelPtr &hdl) { OnClose(hdl); };
+  onmessage = [this](const WebSocketChannelPtr &hdl, const std::string& msg) {OnMessage(hdl, msg);};
 }
 
 void OfflineWebsocketServer::OnOpen(connection_hdl hdl) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  connections_.emplace(hdl, std::make_shared<ConnectionData>());
-
-  SHERPA_ONNX_LOGE("Number of active connections: %d",
-                   static_cast<int32_t>(connections_.size()));
+  hdl->newContextPtr<ConnectionData>();
 }
 
 void OfflineWebsocketServer::OnClose(connection_hdl hdl) {
-  std::lock_guard<std::mutex> lock(mutex_);
-  connections_.erase(hdl);
-
-  SHERPA_ONNX_LOGE("Number of active connections: %d",
-                   static_cast<int32_t>(connections_.size()));
+  hdl->deleteContextPtr();
 }
 
 void OfflineWebsocketServer::OnMessage(connection_hdl hdl,
-                                       server::message_ptr msg) {
-  std::unique_lock<std::mutex> lock(mutex_);
-  auto connection_data = connections_.find(hdl)->second;
-  lock.unlock();
-  const std::string &payload = msg->get_payload();
+                                       const std::string &payload) {
 
-  switch (msg->get_opcode()) {
-    case websocketpp::frame::opcode::text:
+  switch (hdl->opcode) {
+    case WS_OPCODE_TEXT:
       if (payload == "Done") {
         // The client will not send any more data. We can close the
         // connection now.
-        Close(hdl, websocketpp::close::status::normal, "Done");
+        Close(hdl, "Done");
       } else {
-        Close(hdl, websocketpp::close::status::normal,
-              std::string("Invalid payload: ") + payload);
+        Close(hdl, std::string("Invalid payload: ") + payload);
       }
       break;
 
-    case websocketpp::frame::opcode::binary: {
+    case WS_OPCODE_BINARY: {
+      auto connection_data = hdl->getContextPtr<ConnectionData>();
       auto p = reinterpret_cast<const int8_t *>(payload.data());
 
       if (connection_data->expected_byte_size == 0) {
         if (payload.size() < 8) {
-          Close(hdl, websocketpp::close::status::normal,
-                "Payload is too short");
+          Close(hdl, "Payload is too short");
           break;
         }
 
@@ -213,7 +162,7 @@ void OfflineWebsocketServer::OnMessage(connection_hdl hdl,
              << decoder_.GetConfig().max_utterance_length
              << " seconds, received length is " << duration << " seconds. "
              << "Payload is too large!";
-          Close(hdl, websocketpp::close::status::message_too_big, os.str());
+          Close(hdl, os.str());
           break;
         }
 
@@ -238,7 +187,7 @@ void OfflineWebsocketServer::OnMessage(connection_hdl hdl,
 
         connection_data->Clear();
 
-        asio::post(io_work_, [this]() { decoder_.Decode(); });
+        io_work_->loop()->runInLoop([this]() { decoder_.Decode(); });
       }
       break;
     }
@@ -250,26 +199,10 @@ void OfflineWebsocketServer::OnMessage(connection_hdl hdl,
 }
 
 void OfflineWebsocketServer::Close(connection_hdl hdl,
-                                   websocketpp::close::status::value code,
+                                   //websocketpp::close::status::value code,
                                    const std::string &reason) {
-  auto con = server_.get_con_from_hdl(hdl);
-
-  std::ostringstream os;
-  os << "Closing " << con->get_remote_endpoint() << " with reason: " << reason << "\n";
-
-  websocketpp::lib::error_code ec;
-  server_.close(hdl, code, reason, ec);
-  if (ec) {
-    os << "Failed to close" << con->get_remote_endpoint() << ". "
-       << ec.message() << "\n";
-  }
-  server_.get_alog().write(websocketpp::log::alevel::app, os.str());
-}
-
-void OfflineWebsocketServer::Run(uint16_t port) {
-  server_.set_reuse_addr(true);
-  server_.listen(asio::ip::tcp::v4(), port);
-  server_.start_accept();
+  std::cout << "Closing " << hdl->peeraddr() << " with reason: " << reason << "\n";
+  hdl->close();
 }
 
 }  // namespace sherpa_onnx
