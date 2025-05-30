@@ -43,7 +43,7 @@ class LinearResample {
   /// controls the sharpness of the filter, more == sharper but less efficient.
   /// We suggest around 4 to 10 for normal use.
   LinearResample(int32_t samp_rate_in_hz, int32_t samp_rate_out_hz,
-                 float filter_cutoff_hz, int32_t num_zeros);
+                 float filter_cutoff_hz = -1, int32_t num_zeros = 0);
 
   /// Calling the function Reset() resets the state of the object prior to
   /// processing a new signal; it is only necessary if you have called
