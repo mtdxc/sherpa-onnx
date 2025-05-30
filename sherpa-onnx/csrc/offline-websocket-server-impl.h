@@ -16,11 +16,9 @@
 #include "sherpa-onnx/csrc/offline-recognizer.h"
 #include "sherpa-onnx/csrc/parse-options.h"
 #include "sherpa-onnx/csrc/tee-stream.h"
-#include "websocketpp/config/asio_no_tls.hpp"  // TODO(fangjun): support TLS
-#include "websocketpp/server.hpp"
-
-using server = websocketpp::server<websocketpp::config::asio>;
-using connection_hdl = websocketpp::connection_hdl;
+#include "hv/EventLoopThreadPool.h"
+#include "hv/WebSocketServer.h"
+using connection_hdl = WebSocketChannelPtr;
 
 namespace sherpa_onnx {
 
@@ -95,10 +93,13 @@ class OfflineWebsocketDecoder {
    */
   void Decode();
 
+  OfflineRecognizer* handle() { return &recognizer_; }
   const OfflineWebsocketDecoderConfig &GetConfig() const { return config_; }
 
  private:
+  OfflineWebsocketServer *server_;  // Not owned
   OfflineWebsocketDecoderConfig config_;
+  OfflineRecognizer recognizer_;
 
   /** When we have received all the data from the client, we put it into
    * this queue; the worker threads will get items from this queue for
@@ -111,8 +112,6 @@ class OfflineWebsocketDecoder {
   std::mutex mutex_;
   std::deque<std::pair<connection_hdl, ConnectionDataPtr>> streams_;
 
-  OfflineWebsocketServer *server_;  // Not owned
-  OfflineRecognizer recognizer_;
 };
 
 struct OfflineWebsocketServerConfig {
@@ -123,21 +122,15 @@ struct OfflineWebsocketServerConfig {
   void Validate() const;
 };
 
-class OfflineWebsocketServer {
+class OfflineWebsocketServer : public hv::WebSocketService {
  public:
-  OfflineWebsocketServer(asio::io_context &io_conn,  // NOLINT
-                         asio::io_context &io_work,  // NOLINT
+  OfflineWebsocketServer(hv::EventLoopThreadPool* io_work,  // NOLINT
                          const OfflineWebsocketServerConfig &config);
 
-  asio::io_context &GetConnectionContext() { return io_conn_; }
-  server &GetServer() { return server_; }
-
-  void Run(uint16_t port);
-
   const OfflineWebsocketServerConfig &GetConfig() const { return config_; }
+  OfflineRecognizer* handle() { return decoder_.handle(); }
 
  private:
-  void SetupLog();
 
   // When a websocket client is connected, it will invoke this method
   // (Not for HTTP)
@@ -177,18 +170,15 @@ class OfflineWebsocketServer {
   //  (b) Only sound files with a single channel is supported
   //  (c) Only audio samples are sent. For instance, if we want to decode
   //      a WAVE file, the RIFF header of the WAVE is not sent.
-  void OnMessage(connection_hdl hdl, server::message_ptr msg);
+  void OnMessage(connection_hdl hdl, const std::string& msg);
 
   // Close a websocket connection with given code and reason
-  void Close(connection_hdl hdl, websocketpp::close::status::value code,
+  void Close(connection_hdl hdl, //websocketpp::close::status::value code,
              const std::string &reason);
 
  private:
-  asio::io_context &io_conn_;
-  asio::io_context &io_work_;
-  server server_;
+  hv::EventLoopThreadPool *io_work_;
 
-  std::map<connection_hdl, ConnectionDataPtr, std::owner_less<connection_hdl>> connections_;
   std::mutex mutex_;
 
   OfflineWebsocketServerConfig config_;
