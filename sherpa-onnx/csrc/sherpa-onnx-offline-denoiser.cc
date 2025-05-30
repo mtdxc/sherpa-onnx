@@ -73,9 +73,7 @@ wget https://github.com/k2-fsa/sherpa-onnx/releases/download/speech-enhancement-
   const auto end = std::chrono::steady_clock::now();
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
 
   fprintf(stderr, "Done\n");
   is_ok = sherpa_onnx::WriteWave(output_wave, result.sample_rate,

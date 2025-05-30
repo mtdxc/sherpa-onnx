@@ -119,9 +119,7 @@ a smaller threshold leads to more clusters, i.e., more speakers
 
   const auto end = std::chrono::steady_clock::now();
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
 
   fprintf(stderr, "Duration : %.3f s\n", duration);
   fprintf(stderr, "Elapsed seconds: %.3f s\n", elapsed_seconds);

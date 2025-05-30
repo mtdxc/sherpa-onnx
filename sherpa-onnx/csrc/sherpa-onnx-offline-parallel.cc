@@ -109,9 +109,7 @@ void AsrInference(const std::vector<std::vector<std::string>> &chunk_wav_paths,
     recognizer->DecodeStreams(ss_pointers.data(), ss_pointers.size());
     const auto end = std::chrono::steady_clock::now();
     float elapsed_seconds =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-            .count() /
-        1000.;
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
     elapsed_seconds_batch += elapsed_seconds;
     int i = 0;
     for (const auto &wav_filename : wav_paths) {
@@ -256,9 +254,7 @@ for a list of pre-trained models to download.
   sherpa_onnx::OfflineRecognizer recognizer(config);
   const auto end = std::chrono::steady_clock::now();
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   fprintf(stderr,
           "Started nj: %d, batch_size: %d, wav_path: %s. recognizer init time: "
           "%.6f\n",

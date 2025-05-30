@@ -213,9 +213,7 @@ for a list of pre-trained models to download.
   const auto end = std::chrono::steady_clock::now();
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
 
   fprintf(stderr, "num threads: %d\n", asr_config.model_config.num_threads);
   fprintf(stderr, "decoding method: %s\n", asr_config.decoding_method.c_str());
