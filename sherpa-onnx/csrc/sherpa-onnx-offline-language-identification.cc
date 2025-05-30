@@ -92,9 +92,7 @@ for a list of pre-trained models to download.
           language.c_str());
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
 
   fprintf(stderr, "num threads: %d\n", config.num_threads);
 

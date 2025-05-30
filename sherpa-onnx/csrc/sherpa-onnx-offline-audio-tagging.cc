@@ -83,9 +83,7 @@ for more models.
   }
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float rtf = elapsed_seconds / duration;
   fprintf(stderr, "Num threads: %d\n", config.model.num_threads);
   fprintf(stderr, "Wave duration: %.3f\n", duration);

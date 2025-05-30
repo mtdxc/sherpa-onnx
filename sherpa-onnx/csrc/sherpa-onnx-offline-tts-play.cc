@@ -294,9 +294,7 @@ or details.
   }
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
   float duration = audio.samples.size() / static_cast<float>(audio.sample_rate);
 
   float rtf = elapsed_seconds / duration;

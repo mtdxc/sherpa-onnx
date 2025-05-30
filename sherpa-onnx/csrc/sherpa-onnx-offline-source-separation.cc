@@ -109,9 +109,7 @@ wget https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-m
   const auto end = std::chrono::steady_clock::now();
 
   float elapsed_seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
-          .count() /
-      1000.;
+      std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() / 1000.;
 
   is_ok = sherpa_onnx::WriteWave(
       output_vocals_wave, output.sample_rate, output.stems[0].data[0].data(),
