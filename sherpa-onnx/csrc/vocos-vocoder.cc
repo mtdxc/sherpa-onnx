@@ -26,11 +26,11 @@
 namespace sherpa_onnx {
 
 struct VocosModelMetaData {
-  int32_t n_fft;
-  int32_t hop_length;
-  int32_t win_length;
-  int32_t center;
-  int32_t normalized;
+  int32_t n_fft = 0;
+  int32_t hop_length = 0;
+  int32_t win_length = 0;
+  int32_t center = 0;
+  int32_t normalized = 0;
   std::string window_type;
   std::string pad_mode;
 };
