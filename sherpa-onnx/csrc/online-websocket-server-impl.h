@@ -26,7 +26,7 @@
 using connection_hdl = WebSocketChannelPtr;
 
 namespace sherpa_onnx {
-
+enum WavFmt { eFloat, eShort, eByte };
 struct Connection {
   // handle to the connection. We can use it to send messages to the client
   std::shared_ptr<OnlineStream> s;
@@ -46,7 +46,7 @@ struct Connection {
   // The I/O threads receive audio samples into this queue
   // and invoke work threads to compute features
   std::deque<std::vector<float>> samples;
-
+  WavFmt fmt = eShort;
   Connection() = default;
   Connection(std::shared_ptr<OnlineStream> s)
       : s(s), last_active(std::chrono::steady_clock::now()) {}
@@ -86,7 +86,7 @@ class OnlineWebsocketDecoder {
   void Warmup() const;
 
   void Run();
-
+  OnlineRecognizer *handle() { return recognizer_.get(); }
  private:
   void ProcessConnections();
 
@@ -98,7 +98,7 @@ class OnlineWebsocketDecoder {
   OnlineWebsocketServer *server_;  // not owned
   std::unique_ptr<OnlineRecognizer> recognizer_;
   OnlineWebsocketDecoderConfig config_;
-  hv::TimerID timer_;
+  hv::TimerID timer_ = 0;
 
   // It protects `connections_`, `ready_connections_`, and `active_`
   std::mutex mutex_;
@@ -134,7 +134,7 @@ class OnlineWebsocketServer : public WebSocketService {
   hv::EventLoopThreadPool* GetWorkContext() { return io_work_; }
 
   bool Contains(connection_hdl hdl) const;
-
+  OnlineRecognizer *handle() { return decoder_.handle(); }
  private:
   // When a websocket client is connected, it will invoke this method
   // (Not for HTTP)
@@ -148,9 +148,6 @@ class OnlineWebsocketServer : public WebSocketService {
  private:
   OnlineWebsocketServerConfig config_;
   hv::EventLoopThreadPool *io_work_;
-
-  std::ofstream log_;
-  sherpa_onnx::TeeStream tee_;
 
   OnlineWebsocketDecoder decoder_;
 
