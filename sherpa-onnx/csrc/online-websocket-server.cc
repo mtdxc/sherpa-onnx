@@ -76,6 +76,7 @@ int32_t main(int32_t argc, char *argv[]) {
 
   hv::EventLoopThreadPool io_work;
   io_work.setThreadNum(num_work_threads);
+  io_work.start();
   sherpa_onnx::OnlineWebsocketServer service(&io_work, config);
   hv::WebSocketServer server;
   server.setThreadNum(num_io_threads);
@@ -93,17 +94,35 @@ int32_t main(int32_t argc, char *argv[]) {
       return -20;
     }
   }
+  hv::HttpService http;
+  http.Static("/", "./assets");
+  http.POST("/", [&](const HttpRequestPtr &req, const HttpResponseWriterPtr &writer) {
+    int samplerate = req->Get("samplerate", 16000);
+    std::string payload = req->GetFormData("file");
+    auto decoder = service.handle();
+    io_work.loop()->runInLoop([decoder, samplerate, payload, writer]() {
+        auto stream = decoder->CreateStream();
+        stream->AcceptWaveform(samplerate, (float *)payload.data(),
+                                payload.length() / sizeof(float));
+        stream->InputFinished();
+        decoder->DecodeStream(stream.get());
+        auto res = decoder->GetResult(stream.get());
+        writer->Begin();
+        writer->EndHeaders("Content-Type", "application/json");
+        writer->WriteBody(res.AsJsonString());
+        writer->close();
+    });
+  });
+  server.registerHttpService(&http);
 
-  service.Run(port);
   server.registerWebSocketService(&service);
-  server.start();
+  server.onWorkerStart = [&service, port]() { service.Run(port); };
 
   SHERPA_ONNX_LOGE("Started!");
   SHERPA_ONNX_LOGE("Listening on: %d", port);
   SHERPA_ONNX_LOGE("Number of work threads: %d", num_work_threads);
 
-  printf("presee q to exit\n");
-  while (getchar() != 'q');
-
+  server.run();
+  io_work.stop(true);
   return 0;
 }

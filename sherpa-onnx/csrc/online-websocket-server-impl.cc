@@ -72,20 +72,17 @@ void OnlineWebsocketDecoder::AcceptWaveform(std::shared_ptr<Connection> c) {
 
 void OnlineWebsocketDecoder::InputFinished(std::shared_ptr<Connection> c) {
   std::lock_guard<std::mutex> lock(c->mutex);
-
+  // flush remain data
   float sample_rate = config_.recognizer_config.feat_config.sampling_rate;
-
   while (!c->samples.empty()) {
     const auto &s = c->samples.front();
     c->s->AcceptWaveform(sample_rate, s.data(), s.size());
     c->samples.pop_front();
   }
-
-  std::vector<float> tail_padding(
-      static_cast<int64_t>(config_.end_tail_padding * sample_rate));
-
+  // fill end slience
+  std::vector<float> tail_padding(config_.end_tail_padding * sample_rate);
   c->s->AcceptWaveform(sample_rate, tail_padding.data(), tail_padding.size());
-
+  // mask input finished
   c->s->InputFinished();
   c->eof = true;
 }
@@ -96,6 +93,7 @@ void OnlineWebsocketDecoder::Warmup() const {
 }
 
 void OnlineWebsocketDecoder::Run() {
+  if (timer_) return;
   timer_ = hv::setInterval(config_.loop_interval_ms,
                        [this](hv::TimerID id) { ProcessConnections(); });
 }
@@ -117,16 +115,14 @@ void OnlineWebsocketDecoder::ProcessConnections() {
     }
 
     auto c = hdl->getContextPtr<Connection>();
-    if (!recognizer_->IsReady(c->s.get()) && !c->eof) {
-      // this stream has not enough frames to decode, so skip it
-      continue;
-    }
-
-    if (!recognizer_->IsReady(c->s.get()) && c->eof) {
-      // We won't receive samples from the client, so send a Done! to client
-      hdl->send("Done!");
-
-      to_remove.push_back(hdl);
+    if (!recognizer_->IsReady(c->s.get())) {
+      if (c->eof) {
+        // We won't receive samples from the client, so send a Done! to client
+        hdl->send("Done!");
+        to_remove.push_back(hdl);
+      } else {
+        // this stream has not enough frames to decode, so skip it
+      }
       continue;
     }
 
@@ -186,6 +182,7 @@ void OnlineWebsocketDecoder::Decode() {
     auto result = recognizer_->GetResult(s);
     if (recognizer_->IsEndpoint(s)) {
       result.is_final = true;
+      printf("ep:%s\n", result.text.c_str());
       recognizer_->Reset(s);
     }
     auto c = c_vec[i]; 
@@ -203,8 +200,6 @@ OnlineWebsocketServer::OnlineWebsocketServer(
     const OnlineWebsocketServerConfig &config)
     : config_(config),
       io_work_(io_work),
-      log_(config.log_file, std::ios::app),
-      tee_(std::cout, log_),
       decoder_(this) {
   onclose = [this](const WebSocketChannelPtr & ch) {OnClose(ch); };
   onopen = [this](const WebSocketChannelPtr &ch, const HttpRequestPtr &) {
@@ -272,10 +267,25 @@ void OnlineWebsocketServer::OnMessage(connection_hdl hdl, const std::string &pay
       }
       break;
     case WS_OPCODE_BINARY: {
-      auto p = reinterpret_cast<const float *>(payload.data());
-      int32_t num_samples = payload.size() / sizeof(float);
-      std::vector<float> samples(p, p + num_samples);
-
+      std::vector<float> samples;
+      switch (c->fmt){
+        case eFloat: {
+          auto p = reinterpret_cast<const float *>(payload.data());
+          samples = std::vector<float>(p, p + payload.size() / sizeof(float));
+          break;
+        }
+        case eShort: {
+          auto p = reinterpret_cast<const short *>(payload.data());
+          samples.resize(payload.size() / 2);
+          for (int i = 0; i < samples.size(); i++) {
+            samples[i] = *p++ / 32768.0f;
+          }
+          break;
+        }
+        case eByte:
+          break;
+      }
+      
       {
         std::lock_guard<std::mutex> lock(c->mutex);
         c->samples.push_back(std::move(samples));
