@@ -88,6 +88,8 @@ int32_t main(int32_t argc, char *argv[]) {
 
   hv::EventLoopThreadPool io_work;
   io_work.setThreadNum(num_work_threads);
+  io_work.start();
+
   hv::WebSocketServer server;
   server.setThreadNum(num_io_threads);
   server.port = port;
@@ -127,14 +129,12 @@ int32_t main(int32_t argc, char *argv[]) {
     });
   });
   server.registerHttpService(&http);
-  server.start();
 
   SHERPA_ONNX_LOGE("Started!");
   SHERPA_ONNX_LOGE("Listening on: %d", port);
   SHERPA_ONNX_LOGE("Number of work threads: %d", num_work_threads);
 
-  printf("presee q to exit\n");
-  while (getchar() != 'q');
-
+  server.run();
+  io_work.stop(true);
   return 0;
 }

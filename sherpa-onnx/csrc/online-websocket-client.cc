@@ -28,11 +28,12 @@ It support only wave of with a single channel, 16kHz, 16-bit samples.
 
 class Client : public hv::WebSocketClient {
  public:
-  Client(const std::vector<float> &samples,
-         int32_t samples_per_message, float seconds_per_message)
-      : samples_(samples),
-        samples_per_message_(samples_per_message),
+  Client(const char* samples, int32_t size,
+         int32_t bytes_per_message, float seconds_per_message)
+      : samples_(samples, samples+size),
+        bytes_per_message_(bytes_per_message),
         seconds_per_message_(seconds_per_message) {
+
     onopen = [this]() { 
         tid_ = hv::setInterval(seconds_per_message_ * 1000,
                              [this](hv::TimerID) { SendMessage(); });
@@ -48,54 +49,50 @@ class Client : public hv::WebSocketClient {
 
  private:
 
-
   void SendMessage() {
-    int32_t num_samples = samples_.size();
-    int32_t num_messages = num_samples / samples_per_message_;
-
-    if (num_sent_messages_ < 1) {
+    if (send_pos_ < 1) {
       SHERPA_ONNX_LOGE("Starting to send audio");
     }
-    int ret;
-    if (num_sent_messages_ < num_messages) {
-      ret = send((const char*)samples_.data() + num_sent_messages_ * samples_per_message_, samples_per_message_ * sizeof(float), WS_OPCODE_BINARY);
-      if (ret = -1) {
+    int ret = samples_.size() - send_pos_;
+    if (ret > bytes_per_message_) {
+      ret = send(samples_.data() + send_pos_, bytes_per_message_);
+      if (ret == -1) {
         SHERPA_ONNX_LOGE("Failed to send audio samples because %d", ret);
         exit(EXIT_FAILURE);
       }
 
-      ++num_sent_messages_;
-    }
+      send_pos_+= bytes_per_message_;
+    } else {
+      if (tid_) {
+        hv::killTimer(tid_);
+        tid_ = 0;
+      }
 
-    if (num_sent_messages_ == num_messages) {
-      int32_t remaining_samples = num_samples % samples_per_message_;
-      if (remaining_samples) {
-        ret = send((const char*)samples_.data() + num_sent_messages_ * samples_per_message_,
-                remaining_samples * sizeof(float));
-        if (ret = -1) {
+      if (ret) {
+        ret = send(samples_.data() + send_pos_, ret);
+        if (ret == -1) {
           SHERPA_ONNX_LOGE("Failed to send audio samples because %d", ret);
           exit(EXIT_FAILURE);
         }
+        send_pos_ += ret;
       }
 
       // To signal that we have send all the messages
       ret = send("Done");
       SHERPA_ONNX_LOGE("Sent Done Signal");
-      if (ret = -1) {
-        SHERPA_ONNX_LOGE("Failed to send audio samples because %d", ret);
+      if (ret == -1) {
+        SHERPA_ONNX_LOGE("Failed to send done because %d", ret);
         exit(EXIT_FAILURE);
       }
-      hv::killTimer(tid_);
-      tid_ = 0;
     }
   }
 
  private:
   hv::TimerID tid_;
-  std::vector<float> samples_;
-  int32_t samples_per_message_ = 8000;  // 0.5 seconds
+  std::vector<char> samples_;
+  int32_t bytes_per_message_ = 8000 * 4;  // 0.5 seconds
   float seconds_per_message_ = 0.2;
-  int32_t num_sent_messages_ = 0;
+  int32_t send_pos_ = 0;
 };
 
 int32_t main(int32_t argc, char *argv[]) {
@@ -116,6 +113,8 @@ int32_t main(int32_t argc, char *argv[]) {
   po.Register("samples-per-message", &samples_per_message,
               "Send this number of samples per message.");
 
+  bool send_pcm = true;
+  po.Register("send_short", &send_pcm, "Send with short or float.");
   po.Register("seconds-per-message", &seconds_per_message,
               "We will simulate that each message takes this number of seconds "
               "to send. If you select a very large value, it will take a long "
@@ -179,9 +178,19 @@ int32_t main(int32_t argc, char *argv[]) {
                      actual_sample_rate);
     return -1;
   }
+  const char *data = (const char*)samples.data();
+  int unit = sizeof(float);
+  std::vector<short> pcms;
+  if (send_pcm) {
+    pcms.resize(samples.size());
+    for (int i = 0; i < samples.size(); i++) {
+      pcms[i] = samples[i] * 32768;
+    }
+    data = (const char *)pcms.data();
+    unit = sizeof(short);
+  }
 
-  Client c(samples, samples_per_message,
-           seconds_per_message);
+  Client c(data, samples.size() * unit,  samples_per_message * unit, seconds_per_message);
   c.open(server_url.c_str());
 
   printf("presee q to exit\n");
