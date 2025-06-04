@@ -557,7 +557,15 @@ endif()
 if(SHERPA_ONNX_ENABLE_WEBSOCKET AND SHERPA_ONNX_ENABLE_BINARY)
   add_definitions(-DASIO_STANDALONE)
   add_definitions(-D_WEBSOCKETPP_CPP11_STL_)
-
+  aux_source_directory(ws sherpa_ws_srcs)
+  add_executable(sherpa-onnx-websocket-server ${sherpa_ws_srcs})
+  target_link_libraries(sherpa-onnx-websocket-server sherpa-onnx-core hv)
+  add_custom_command(TARGET sherpa-onnx-websocket-server POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+      ${CMAKE_CURRENT_SOURCE_DIR}/ws/assets
+      $<TARGET_FILE_DIR:sherpa-onnx-websocket-server>/assets
+  )
+  
   add_executable(sherpa-onnx-online-websocket-server
     online-websocket-server-impl.cc
     online-websocket-server.cc
