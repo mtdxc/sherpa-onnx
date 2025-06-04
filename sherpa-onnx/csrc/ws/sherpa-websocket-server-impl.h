@@ -47,79 +47,13 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   std::deque<std::string> tts_wavs_;
   bool popTtsFrame(std::string& frame);
   void onAsrLine(std::string line);
-  // Audio samples received from the client.
-  //
-  // The I/O threads receive audio samples into this queue
-  // and invoke work threads to compute features
-  std::deque<std::vector<float>> samples;
-  std::mutex mutex;  // protect samples
   int samplerate = 16000;  // default sample rate
   WavFmt fmt = eShort;
   Connection() = default;
 };
 
-struct OnlineWebsocketDecoderConfig {
-  OnlineRecognizerConfig recognizer_config;
-  // It determines how often the decoder loop runs.
-  int32_t loop_interval_ms = 10;
-
-  int32_t max_batch_size = 5;
-
-  float end_tail_padding = 0.8;
-
-  void Register(ParseOptions *po);
-  void Validate() const;
-};
-
-class SherpaWebsocketServer;
-
-class OnlineWebsocketDecoder {
- public:
-  /**
-   * @param server  Not owned.
-   */
-  explicit OnlineWebsocketDecoder(SherpaWebsocketServer *server);
-
-  std::shared_ptr<Connection> GetOrCreateConnection(connection_hdl hdl);
-
-  // Compute features for a stream given audio samples
-  void AcceptWaveform(std::shared_ptr<Connection> c);
-
-  // signal that there will be no more audio samples for a stream
-  void InputFinished(std::shared_ptr<Connection> c);
-
-  void Warmup() const;
-
-  void Run();
-  OnlineRecognizer *handle() { return recognizer_.get(); }
- private:
-  void ProcessConnections();
-
-  /** It is called by one of the worker thread.
-   */
-  void Decode();
-
- private:
-  SherpaWebsocketServer *server_;  // not owned
-  hv::TimerID timer_ = 0;
-
-  // It protects `connections_`, `ready_connections_`, and `active_`
-  std::mutex mutex_;
-
-  std::set<connection_hdl> connections_;
-  std::unique_ptr<OnlineRecognizer> recognizer_;
-  OnlineWebsocketDecoderConfig config_;
-  // Whenever a connection has enough feature frames for decoding, we put
-  // it in this queue
-  std::deque<connection_hdl> ready_connections_;
-
-  // If we are decoding a stream, we put it in the active_ set so that
-  // only one thread can decode a stream at a time.
-  std::set<connection_hdl> active_;
-};
-
 struct WebsocketServerConfig {
-  OnlineWebsocketDecoderConfig decoder_config;
+  OnlineRecognizerConfig online_config;
   OfflineRecognizerConfig offline_config;
   OfflineTtsConfig tts_config;
   VadModelConfig vad_config;
