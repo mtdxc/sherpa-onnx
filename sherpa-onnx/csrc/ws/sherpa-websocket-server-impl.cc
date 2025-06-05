@@ -3,7 +3,7 @@
 // Copyright (c)  2022-2023  Xiaomi Corporation
 
 #include "sherpa-websocket-server-impl.h"
-
+#include "sherpa-onnx/csrc/text-utils.h"
 #include <vector>
 #include "sherpa-onnx/csrc/file-utils.h"
 #include "sherpa-onnx/csrc/log.h"
@@ -231,6 +231,21 @@ void SherpaWebsocketServer::onAsrLine(connection_hdl hdl, const std::string& msg
   hdl->send(j.dump(), WS_OPCODE_TEXT);
 }
 
+void SplitStringToVector(const std::string &in, const wchar_t *delim,
+                         bool omit_empty_strings,
+                         std::list<std::string> *out) {
+  std::wstring full = ToWideString(in);
+  size_t start = 0, found = 0, end = full.size();
+  //out->clear();
+  while (found != -1) {
+    found = full.find_first_of(delim, start);
+    // start != end condition is for when the delimiter is at the end
+    if (!omit_empty_strings || (found != start && start != end))
+      out->push_back(ToString(full.substr(start, found - start + 1)));
+    start = found + 1;
+  }
+}
+
 void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg) {
   auto c = hdl->getContextPtr<Connection>();
   if (c->tts_lines_.empty() && !c->tts_id_) {
@@ -242,7 +257,10 @@ void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg) {
                         [=](hv::TimerID tId) { sendTtsFrame(hdl); });
   }
   SHERPA_ONNX_LOGE("addTts %s", msg.c_str());
-  c->tts_lines_.push_back(msg);
+  // 加入断句处理
+  static std::wstring split = L".。!！?？";
+  SplitStringToVector(msg, split.c_str(), true, &c->tts_lines_);
+  //c->tts_lines_.push_back(msg);
 }
 
 void SherpaWebsocketServer::sendTtsFrame(connection_hdl hdl) {
