@@ -113,7 +113,7 @@ void SherpaWebsocketServer::OnMessage(connection_hdl hdl, const std::string &pay
           hv::Json root = hv::Json::parse(payload);
           std::string cmd = root["cmd"];
           if (cmd == "abort") {
-            c->onAsrLine("");
+            c->addTtsIndex();
           } else if (cmd == "tts") {
             addTts(hdl, root["msg"].get<std::string>());
           }
@@ -192,8 +192,8 @@ void SherpaWebsocketServer::doAsr(connection_hdl hdl, const std::string &payload
     auto result = asr_online_->GetResult(s);
     if (asr_online_->IsEndpoint(s)) {
       result.is_final = true;
-      hdl->send(result.AsJsonString());
-      c->onAsrLine(result.text);
+      //hdl->send(result.AsJsonString());
+      onAsrLine(hdl, result.text);
       asr_online_->Reset(s);
     } else {
       // send intermediate results
@@ -208,17 +208,27 @@ void SherpaWebsocketServer::doAsr(connection_hdl hdl, const std::string &payload
       s->AcceptWaveform(c->in_sample_rate, seg.samples.data(), seg.samples.size());
       asr_offline_->DecodeStream(s.get());
       auto res = s->GetResult();
-      hdl->send(res.AsJsonString());
-      c->onAsrLine(res.text);
+      //hdl->send(res.AsJsonString());
+      onAsrLine(hdl, res.text);
       c->vad_->Pop();
     }
   }
 }
 
-void Connection::onAsrLine(std::string msg) {
+void SherpaWebsocketServer::onAsrLine(connection_hdl hdl, const std::string& msg) {
+  auto c = hdl->getContextPtr<Connection>();
+  if (msg.empty()) {
+    return ;
+  }
   // 触发打断
   SHERPA_ONNX_LOGE("onAsrLine %s", msg.c_str());
-  tts_index_++;
+  hv::Json j;
+  j["cmd"] = "asr";
+  j["text"] = msg;
+  j["is_final"] = true;
+  j["finished"] = true;
+  j["idx"] = c->addTtsIndex();
+  hdl->send(j.dump(), WS_OPCODE_TEXT);
 }
 
 void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg) {
@@ -253,6 +263,11 @@ void SherpaWebsocketServer::sendTtsFrame(connection_hdl hdl) {
 void SherpaWebsocketServer::doTts(connection_hdl hdl, const std::string &msg) {
   auto c = hdl->getContextPtr<Connection>();
   c->tts_line_ = msg;
+  hv::Json j;
+  j["cmd"] = "tts";
+  j["msg"] = msg;
+  hdl->send(j.dump());
+
   SHERPA_ONNX_LOGE("doTts %s", msg.c_str());
   int index = c->tts_index_;
   int samplerate = tts_->SampleRate();

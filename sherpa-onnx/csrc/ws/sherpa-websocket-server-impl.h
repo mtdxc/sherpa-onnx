@@ -58,9 +58,10 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   WavFmt fmt = eShort; // audio format for send and recv
   std::vector<float> tts_cache_;
   std::unique_ptr<LinearResample> resample_;
-  // for break
+  // 打断计数器
   int tts_index_ = 0;
-  void onAsrLine(std::string line);
+  // 增加索引，并触发打断
+  int addTtsIndex() { return ++tts_index_; }
   void addTtsWav(const float *data, int size, int samplerate);
   void addTtsFrame(const float *data, int size);
 
@@ -103,6 +104,7 @@ class SherpaWebsocketServer : public WebSocketService {
   void doTts(connection_hdl hdl, const std::string &msg);
   // 增加tts文本输出
   void addTts(connection_hdl hdl, const std::string &msg);
+  void onAsrLine(connection_hdl hdl, const std::string& line);
  private:
   // 发送tts语音帧
   void sendTtsFrame(connection_hdl hdl);
