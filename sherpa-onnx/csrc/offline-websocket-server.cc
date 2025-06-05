@@ -42,6 +42,12 @@ for a list of pre-trained models to download.
 )";
 
 int32_t main(int32_t argc, char *argv[]) {
+#ifdef _WIN32
+  SetConsoleCP(65001);
+  SetConsoleOutputCP(65001);
+#endif
+  hlog_set_handler(stdout_logger);
+  hlog_set_level(LOG_LEVEL_INFO);
   sherpa_onnx::ParseOptions po(kUsageMessage);
 
   sherpa_onnx::OfflineWebsocketServerConfig config;

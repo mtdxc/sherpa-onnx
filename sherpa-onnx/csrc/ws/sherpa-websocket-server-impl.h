@@ -22,34 +22,51 @@
 #include "sherpa-onnx/csrc/online-stream.h"
 #include "sherpa-onnx/csrc/parse-options.h"
 #include "sherpa-onnx/csrc/tee-stream.h"
+#include "sherpa-onnx/csrc/resample.h"
 #include "hv/WebSocketChannel.h"  // NOLINT
 #include "hv/WebSocketServer.h"  // NOLINT
 #include "hv/EventLoopThreadPool.h"
+extern "C" {
+#include "shine_mp3.h"
+}
+
 using connection_hdl = WebSocketChannelPtr;
 
 namespace sherpa_onnx {
 enum WavFmt { eFloat, eShort, eByte };
 struct Connection : public std::enable_shared_from_this<Connection> {
-  // handle to the connection. We can use it to send messages to the client
-  std::shared_ptr<OnlineStream> s;
-  std::shared_ptr<OfflineStream> os;
+  hv::EventLoop *worker_ = nullptr;
+  // asr handle
+  std::shared_ptr<OnlineStream> son;
+  std::unique_ptr<VoiceActivityDetector> vad_;
 
   // set it to true when InputFinished() is called
   bool eof = false;
-
-  hv::EventLoop *worker_ = nullptr;
+  // tts text line for output
   std::list<std::string> tts_lines_;
+  // cur output line
   std::string tts_line_;
-  int tts_index_ = 0;
-  std::unique_ptr<VoiceActivityDetector> vad_;
-  // TTS audio samples received from the client.
-  // ÿ֡һ��
+  
+  shine_t mp3_enc_ = nullptr;
+  // binary send buffer
   std::deque<std::string> tts_wavs_;
-  bool popTtsFrame(std::string& frame);
+
+  int in_sample_rate = 16000;  // in sample rate for asr
+  int out_sample_rate = 16000;  // out sample rate for tts
+  int out_frame_size = 960; // 60ms
+  hv::TimerID tts_id_ = 0; // tts frame send id
+  WavFmt fmt = eShort; // audio format for send and recv
+  std::vector<float> tts_cache_;
+  std::unique_ptr<LinearResample> resample_;
+  // for break
+  int tts_index_ = 0;
   void onAsrLine(std::string line);
-  int samplerate = 16000;  // default sample rate
-  WavFmt fmt = eShort;
+  void addTtsWav(const float *data, int size, int samplerate);
+  void addTtsFrame(const float *data, int size);
+
   Connection() = default;
+  ~Connection();
+  void stop();
 };
 
 struct WebsocketServerConfig {
@@ -68,7 +85,7 @@ class SherpaWebsocketServer : public WebSocketService {
   explicit SherpaWebsocketServer(hv::EventLoopThreadPool* io_work,  // NOLINT
                                  const WebsocketServerConfig &config);
 
-  void Run(uint16_t port);
+  void Run();
 
   const WebsocketServerConfig &GetConfig() const { return config_; }
   hv::EventLoopThreadPool* GetWorkContext() { return io_work_; }
@@ -81,10 +98,15 @@ class SherpaWebsocketServer : public WebSocketService {
   // (Not for HTTP)
   void OnOpen(connection_hdl hdl, const HttpRequestPtr &req);
   void OnMessage(connection_hdl hdl, const std::string& msg);
-
+  // do in worker loop
   void doAsr(connection_hdl hdl, const std::string &msg);
   void doTts(connection_hdl hdl, const std::string &msg);
+  // 增加tts文本输出
+  void addTts(connection_hdl hdl, const std::string &msg);
  private:
+  // 发送tts语音帧
+  void sendTtsFrame(connection_hdl hdl);
+
   std::unique_ptr<OfflineTts> tts_;
   std::unique_ptr<OnlineRecognizer> asr_online_;
   std::unique_ptr<OfflineRecognizer> asr_offline_;
