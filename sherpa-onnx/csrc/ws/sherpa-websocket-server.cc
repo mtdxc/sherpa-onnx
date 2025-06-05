@@ -31,8 +31,14 @@ for a list of pre-trained models to download.
 )";
 
 int32_t main(int32_t argc, char *argv[]) {
-  sherpa_onnx::ParseOptions po(kUsageMessage);
+#ifdef _WIN32
+  //SetConsoleCP(65001);
+  SetConsoleOutputCP(65001);
+#endif  // _WIN32
 
+  sherpa_onnx::ParseOptions po(kUsageMessage);
+  //hlog_set_handler(stdout_logger);
+  //hlog_set_level(LOG_LEVEL_INFO);
   sherpa_onnx::WebsocketServerConfig config;
 
   // the server will listen on this port
@@ -99,24 +105,33 @@ int32_t main(int32_t argc, char *argv[]) {
   http.POST("/", [&](const HttpRequestPtr &req, const HttpResponseWriterPtr &writer) {
     int samplerate = req->Get("samplerate", 16000);
     std::string payload = req->GetFormData("file");
-    auto decoder = service.asrOnline();
-    io_work.loop()->runInLoop([decoder, samplerate, payload, writer]() {
+    io_work.loop()->runInLoop([&service, samplerate, payload, writer]() {
+      std::string json;
+      if (auto decoder = service.asrOnline()) {
         auto stream = decoder->CreateStream();
         stream->AcceptWaveform(samplerate, (float *)payload.data(),
-                                payload.length() / sizeof(float));
+                               payload.length() / sizeof(float));
         stream->InputFinished();
         decoder->DecodeStream(stream.get());
         auto res = decoder->GetResult(stream.get());
-        writer->Begin();
-        writer->EndHeaders("Content-Type", "application/json");
-        writer->WriteBody(res.AsJsonString());
-        writer->close();
+        json = res.AsJsonString();
+      } else if(auto dec = service.asrOffline()) {
+        auto stream = dec->CreateStream();
+        stream->AcceptWaveform(samplerate, (float *)payload.data(),
+                               payload.length() / sizeof(float));
+        dec->DecodeStream(stream.get());
+        json = stream->GetResult().AsJsonString();
+      }
+      writer->Begin();
+      writer->EndHeaders("Content-Type", "application/json");
+      writer->WriteBody(json);
+      writer->close();
     });
   });
   server.registerHttpService(&http);
 
   server.registerWebSocketService(&service);
-  server.onWorkerStart = [&service, port]() { service.Run(port); };
+  //server.onWorkerStart = [&service]() { service.Run(); };
 
   SHERPA_ONNX_LOGE("Started!");
   SHERPA_ONNX_LOGE("Listening on: %d", port);

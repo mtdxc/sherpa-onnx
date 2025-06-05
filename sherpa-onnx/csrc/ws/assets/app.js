@@ -14,7 +14,7 @@ const demoapp = {
 
         const ws = new WebSocket('/tts');
         ws.onopen = () => {
-            ws.send(this.text);
+            ws.send(JSON.stringify({cmd:'tts', msg:this.text}));
         };
         const playNode = new AudioWorkletNode(audioContext, 'play-audio-processor');
         playNode.connect(audioContext.destination);
