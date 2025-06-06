@@ -133,9 +133,12 @@
                 <div
                     class="rounded border border-gray-500 p-3 w-full flex flex-col items-end h-[36rem] overflow-y-auto">
                     <template x-for="item in logs">
-                        <div class="mt-3 mb-2">
+                        <div class="mt-3 mb-2 w-full flex" :class="item.my ? 'justify-end' : 'justify-start'">
                             <span
-                                class="text-white px-4 py-1.5 text-[13px] display-inline-block border border-gray-900 rounded-t-full rounded-l-full bg-gray-900 justify-end w-auto"
+                                class="px-4 py-1.5 text-[13px] inline-block border rounded-t-full rounded-l-full rounded-r-full"
+                                :class="item.my 
+                                    ? 'bg-gray-900 text-white border-gray-900 rounded-br-none' 
+                                    : 'bg-gray-200 text-gray-900 border-gray-300 rounded-bl-none'"
                                 x-text="item?.text">
                             </span>
                         </div>
