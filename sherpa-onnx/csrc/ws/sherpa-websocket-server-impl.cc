@@ -10,6 +10,7 @@
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 #include "hv/requests.h"
+#include "hv/htime.h"
 
 namespace sherpa_onnx {
 shine_t mp3EncodeOpen(int samplerate, int channel, int bitrate) {
@@ -37,6 +38,8 @@ void WebsocketServerConfig::Register(sherpa_onnx::ParseOptions *po) {
   vad_config.Register(po);
   po->Register("llm-url", &llm_url, "llm url to request");
   po->Register("llm-model", &llm_model, "llm model to request");
+  po->Register("tts-frame-count", &tts_frame_count, "tts frame count");
+  po->Register("tts-frame-size", &tts_frame_size, "tts frame size");
 }
 
 void WebsocketServerConfig::Validate() const {  
@@ -49,11 +52,16 @@ void WebsocketServerConfig::Validate() const {
 SherpaWebsocketServer::SherpaWebsocketServer(hv::EventLoopThreadPool* io_work,
     const WebsocketServerConfig &config)
     : config_(config), io_work_(io_work) {
-  this->asr_online_ = std::make_unique<OnlineRecognizer>(config.online_config);
-  if (config.offline_config.model_config.tokens.length()) {
+  if (config.online_config.Validate()) {
+    this->asr_online_ = std::make_unique<OnlineRecognizer>(config.online_config);
+  }
+  if (config.offline_config.Validate()) {
     this->asr_offline_ = std::make_unique<OfflineRecognizer>(config.offline_config);
   }
-  this->tts_ = std::make_unique<OfflineTts>(config.tts_config);
+  if (config.tts_config.Validate()) {
+    this->tts_ = std::make_unique<OfflineTts>(config.tts_config);
+  }
+
   onclose = [this](const WebSocketChannelPtr &ch) {
     SHERPA_ONNX_LOG(INFO) << "connection close: " << ch->peeraddr();
     if (auto c = ch->getContextPtr<Connection>()) {
@@ -93,6 +101,7 @@ void SherpaWebsocketServer::Run() {
 
 void SherpaWebsocketServer::OnOpen(connection_hdl hdl, const HttpRequestPtr &req) {
   auto ret = std::make_shared<Connection>();
+  ret->out_frame_size = config_.tts_frame_size;
   if(asr_online_)
     ret->son = asr_online_->CreateStream();
   else if(asr_offline_) {
@@ -224,7 +233,7 @@ void SherpaWebsocketServer::onAsrLine(connection_hdl hdl, const std::string& msg
   if (msg.empty()) {
     return ;
   }
-  SHERPA_ONNX_LOGE("onAsrLine %s", msg.c_str());
+  hlogi("onAsrLine %s", msg.c_str());
   // 会触发打断
   int idx = c->addTtsIndex();
   // 发送tts信息
@@ -244,6 +253,7 @@ void SherpaWebsocketServer::onAsrLine(connection_hdl hdl, const std::string& msg
   if (c->llm_req_) {
     c->llm_req_->Cancel();
     c->llm_req_ = nullptr;
+    c->llm_s_ = c->llm_f_ = 0;
   }
   c->llm_line_.clear();
   
@@ -270,6 +280,8 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
   req->SetBody(c->llm_ctx_.dump());
 
   c->llm_req_ = req;
+  c->llm_s_ = gettick_ms();
+  c->llm_f_ = 0;
   int idx = c->tts_index_;
   std::shared_ptr<bool> bstream = std::make_shared<bool>(false);
   req->http_cb = [req, bstream, hdl, c, idx, this](
@@ -300,6 +312,7 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
 
             std::string text = j["response"];
             c->llm_line_.append(text);
+            // @todo 转到 hdl的线程中执行 addTts
             if (j["done"] || c->llm_line_.length() > 120) {
               addTts(hdl, c->llm_line_);
               c->llm_line_.clear();
@@ -349,8 +362,12 @@ void SplitStringToVector(const std::string &in, const wchar_t *delim,
   while (found != -1) {
     found = full.find_first_of(delim, start);
     // start != end condition is for when the delimiter is at the end
-    if (!omit_empty_strings || (found != start && start != end))
-      out->push_back(ToString(full.substr(start, found - start + 1)));
+    if (!omit_empty_strings || (found != start && start != end)) {
+      auto str = ToString(full.substr(start, found - start + 1));
+      str = hv::trim(str);
+      if (str.length())
+        out->push_back(str);
+    }
     start = found + 1;
   }
 }
@@ -365,10 +382,16 @@ void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg) {
     c->tts_id_ = hv::setInterval(c->out_frame_size * 1000 / c->out_sample_rate,
                         [=](hv::TimerID tId) { sendTtsFrame(hdl); });
   }
-  SHERPA_ONNX_LOGE("addTts %s", msg.c_str());
+
+  hlogi("addTts %s", msg.c_str());
+  if (!c->llm_f_ && c->llm_s_) {
+    c->llm_f_ = gettick_ms();
+    hlogi("it tooks %d ms to got first llm resp", c->llm_f_ - c->llm_s_);
+  }
   // 加入断句处理
   SplitStringToVector(msg, split.c_str(), true, &c->tts_lines_);
   //c->tts_lines_.push_back(msg);
+  doTts(hdl);
 }
 
 void SherpaWebsocketServer::sendTtsFrame(connection_hdl hdl) {
@@ -378,9 +401,14 @@ void SherpaWebsocketServer::sendTtsFrame(connection_hdl hdl) {
     c->tts_wavs_.pop_front();
     hdl->send(frame, WS_OPCODE_BINARY);
   }
-  if (c->tts_line_.empty() && c->tts_lines_.size() 
-      && c->tts_wavs_.size() < 10) {
-    // 提前生成下一句
+  doTts(hdl);
+}
+
+void SherpaWebsocketServer::doTts(connection_hdl hdl) {
+  auto c = hdl->getContextPtr<Connection>();
+  if (c->tts_line_.empty() && c->tts_lines_.size() &&
+      c->tts_wavs_.size() < config_.tts_frame_count) {
+    // 生成下一句
     std::string line = c->tts_lines_.front();
     c->tts_lines_.pop_front();
     io_work_->loop()->runInLoop([=]() { doTts(hdl, line); });
@@ -397,10 +425,12 @@ void SherpaWebsocketServer::doTts(connection_hdl hdl, const std::string &msg) {
   j["idx"] = index;
   hdl->send(j.dump());
 
-  SHERPA_ONNX_LOGE("doTts %s", msg.c_str());
+  hlogi("doTts %s", msg.c_str());
+  unsigned int f = 0, s = gettick_ms();
   int samplerate = tts_->SampleRate();
-  tts_->Generate(msg, 0, 1.0f,
-      [hdl, c, index, samplerate](const float *samples, int32_t n, float progress) {
+  auto res = tts_->Generate(msg, 0, 1.0f,
+      [hdl, c, index, &f, samplerate](const float *samples, int32_t n, float progress) {
+        if (!f) f = gettick_ms();
         if (hdl->isClosed()) return 0; ///< 连接断开
         if (c->tts_index_ != index) return 0; /// 打断
         //printf("%d %f\n", n, progress);
@@ -408,6 +438,9 @@ void SherpaWebsocketServer::doTts(connection_hdl hdl, const std::string &msg) {
         return 1;
       });
   if (c->tts_line_ == msg) {
+    int delta = gettick_ms() - s;
+    hlogi("%d text generate %5.2fs audio, it tooks %d, %d ms", msg.length(),
+          res.samples.size() * 1.0f / res.sample_rate, f - s, delta);
     c->tts_line_.clear();
   }
 }

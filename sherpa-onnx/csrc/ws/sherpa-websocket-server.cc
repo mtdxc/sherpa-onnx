@@ -37,8 +37,8 @@ int32_t main(int32_t argc, char *argv[]) {
 #endif  // _WIN32
 
   sherpa_onnx::ParseOptions po(kUsageMessage);
-  //hlog_set_handler(stdout_logger);
-  //hlog_set_level(LOG_LEVEL_INFO);
+  hlog_set_handler(stdout_logger);
+  hlog_set_level(LOG_LEVEL_INFO);
   sherpa_onnx::WebsocketServerConfig config;
 
   // the server will listen on this port
