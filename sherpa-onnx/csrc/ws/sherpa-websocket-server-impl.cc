@@ -9,6 +9,7 @@
 #include "sherpa-onnx/csrc/log.h"
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
+#include "hv/requests.h"
 
 namespace sherpa_onnx {
 shine_t mp3EncodeOpen(int samplerate, int channel, int bitrate) {
@@ -34,8 +35,8 @@ void WebsocketServerConfig::Register(sherpa_onnx::ParseOptions *po) {
   offline_config.Register(po);
   tts_config.Register(po);
   vad_config.Register(po);
-  po->Register("log-file", &log_file,
-               "Path to the log file. Logs are appended to this file");
+  po->Register("llm-url", &llm_url, "llm url to request");
+  po->Register("llm-model", &llm_model, "llm model to request");
 }
 
 void WebsocketServerConfig::Validate() const {  
@@ -116,6 +117,8 @@ void SherpaWebsocketServer::OnMessage(connection_hdl hdl, const std::string &pay
             c->addTtsIndex();
           } else if (cmd == "tts") {
             addTts(hdl, root["msg"].get<std::string>());
+          } else if (cmd == "llm") {
+            doLlm(hdl, root["msg"].get<std::string>());
           }
         } catch (std::exception e) {
           SHERPA_ONNX_LOGE("parse exception %s!", e.what());
@@ -215,20 +218,126 @@ void SherpaWebsocketServer::doAsr(connection_hdl hdl, const std::string &payload
   }
 }
 
+static std::wstring split = L"。!！?？\n";
 void SherpaWebsocketServer::onAsrLine(connection_hdl hdl, const std::string& msg) {
   auto c = hdl->getContextPtr<Connection>();
   if (msg.empty()) {
     return ;
   }
-  // 触发打断
   SHERPA_ONNX_LOGE("onAsrLine %s", msg.c_str());
+  // 会触发打断
+  int idx = c->addTtsIndex();
+  // 发送tts信息
   hv::Json j;
-  j["cmd"] = "asr";
+  j["cmd"] = "stt";
   j["text"] = msg;
   j["is_final"] = true;
   j["finished"] = true;
-  j["idx"] = c->addTtsIndex();
+  j["idx"] = idx;
   hdl->send(j.dump(), WS_OPCODE_TEXT);
+
+  // 打断TTS请求
+  c->tts_lines_.clear();
+  c->tts_line_.clear();
+
+  // 打断llm请求
+  if (c->llm_req_) {
+    c->llm_req_->Cancel();
+    c->llm_req_ = nullptr;
+  }
+  c->llm_line_.clear();
+  
+  doLlm(hdl, msg);
+}
+
+void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
+  if (config_.llm_url.empty())
+    return;
+  auto c = hdl->getContextPtr<Connection>();
+  if (msg.empty()) {
+    return;
+  }
+
+  c->llm_ctx_["stream"] = true;
+  c->llm_ctx_["model"] = config_.llm_model;
+  c->llm_ctx_["prompt"] = msg;
+
+  HttpRequestPtr req = std::make_shared<HttpRequest>();
+  req->url = config_.llm_url;
+  req->method = HTTP_POST;
+  req->timeout = -1;  // 不超时
+  req->SetHeader("Content-Type", "application/json");
+  req->SetBody(c->llm_ctx_.dump());
+
+  c->llm_req_ = req;
+  int idx = c->tts_index_;
+  std::shared_ptr<bool> bstream = std::make_shared<bool>(false);
+  req->http_cb = [req, bstream, hdl, c, idx, this](
+                     HttpMessage *resp, http_parser_state state,
+                     const char *data, size_t size) {
+    if (state == HP_HEADERS_COMPLETE) {
+      if (resp->headers["Content-Type"] == "text/event-stream") {
+        *bstream = true;
+      }
+    } else if (state == HP_BODY) {
+      if (!hdl->isConnected() || c->tts_index_ != idx) {
+        req->Cancel();
+        return;
+      }
+      /*binary body should check data*/
+      // printf("%s", std::string(data, size).c_str());
+      resp->body.append(data, size);
+      if (!*bstream) {
+        size_t ifind = std::string::npos;
+        while ((ifind = resp->body.find("\n")) != std::string::npos) {
+          std::string msg = resp->body.substr(0, ifind + 1);
+          try {
+            auto j = hv::Json::parse(msg);
+            if (j.contains("context")) {
+              auto c = hdl->getContextPtr<Connection>();
+              c->llm_ctx_["context"] = j["context"];
+            }
+
+            std::string text = j["response"];
+            c->llm_line_.append(text);
+            if (j["done"] || c->llm_line_.length() > 120) {
+              addTts(hdl, c->llm_line_);
+              c->llm_line_.clear();
+            } else {
+              std::wstring w = ToWideString(c->llm_line_);
+              int pos = w.find_last_of(split);
+              if (pos != -1) {
+                addTts(hdl, ToString(w.substr(0, pos + 1)));
+                c->llm_line_ = ToString(w.substr(pos + 1));
+              }
+            }
+          } catch (const std::exception &e) {
+            // fprintf(stderr, "JSON parse error: %s\n", e.what());
+          }
+          resp->body.erase(0, ifind + 1);
+        }
+      } else {
+        /*/n/n获取message*/
+        size_t ifind = std::string::npos;
+        while ((ifind = resp->body.find("\n\n")) != std::string::npos) {
+          std::string msg = resp->body.substr(0, ifind + 2);
+          resp->body.erase(0, ifind + 2);
+
+          /*解析body,暂时不考虑多data
+          id:xxx\n
+          event:xxx\n
+          data:xxx\n
+          data:xxx\n
+          data:xxx\n
+          retry:10000\n
+          */
+          auto kvs = hv::splitKV(msg, '\n', ':');
+          // if (!msg_cb(hv::Json(kvs))) req->Cancel();
+        }
+      }
+    }
+  };
+  requests::async(req, nullptr);
 }
 
 void SplitStringToVector(const std::string &in, const wchar_t *delim,
@@ -258,7 +367,6 @@ void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg) {
   }
   SHERPA_ONNX_LOGE("addTts %s", msg.c_str());
   // 加入断句处理
-  static std::wstring split = L".。!！?？";
   SplitStringToVector(msg, split.c_str(), true, &c->tts_lines_);
   //c->tts_lines_.push_back(msg);
 }
@@ -267,27 +375,29 @@ void SherpaWebsocketServer::sendTtsFrame(connection_hdl hdl) {
   auto c = hdl->getContextPtr<Connection>();
   if (!c->tts_wavs_.empty()) {
     auto frame = c->tts_wavs_.front();
-    hdl->send(frame, WS_OPCODE_BINARY);
     c->tts_wavs_.pop_front();
+    hdl->send(frame, WS_OPCODE_BINARY);
   }
-  if (c->tts_line_.empty() && c->tts_wavs_.size() < 5 && c->tts_lines_.size()) {
+  if (c->tts_line_.empty() && c->tts_lines_.size() 
+      && c->tts_wavs_.size() < 10) {
     // 提前生成下一句
     std::string line = c->tts_lines_.front();
     c->tts_lines_.pop_front();
-    c->worker_->runInLoop([=]() { doTts(hdl, line); });
+    io_work_->loop()->runInLoop([=]() { doTts(hdl, line); });
   }
 }
 
 void SherpaWebsocketServer::doTts(connection_hdl hdl, const std::string &msg) {
   auto c = hdl->getContextPtr<Connection>();
   c->tts_line_ = msg;
+  int index = c->tts_index_;
   hv::Json j;
   j["cmd"] = "tts";
-  j["msg"] = msg;
+  j["text"] = msg;
+  j["idx"] = index;
   hdl->send(j.dump());
 
   SHERPA_ONNX_LOGE("doTts %s", msg.c_str());
-  int index = c->tts_index_;
   int samplerate = tts_->SampleRate();
   tts_->Generate(msg, 0, 1.0f,
       [hdl, c, index, samplerate](const float *samples, int32_t n, float progress) {
@@ -297,7 +407,9 @@ void SherpaWebsocketServer::doTts(connection_hdl hdl, const std::string &msg) {
         c->addTtsWav(samples, n, samplerate);
         return 1;
       });
-  c->tts_line_.clear();
+  if (c->tts_line_ == msg) {
+    c->tts_line_.clear();
+  }
 }
 
 // 分帧
