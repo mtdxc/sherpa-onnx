@@ -6,6 +6,20 @@
 #define SHERPA_ONNX_CSRC_MACROS_H_
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#ifdef _WIN32
+#define DIR_SEPARATOR '\\'
+#define DIR_SEPARATOR_STR "\\"
+#else
+#define DIR_SEPARATOR '/'
+#define DIR_SEPARATOR_STR "/"
+#endif
+
+#ifndef __FILENAME__
+// #define __FILENAME__  (strrchr(__FILE__, DIR_SEPARATOR) ? strrchr(__FILE__,
+// DIR_SEPARATOR) + 1 : __FILE__)
+#define __FILENAME__ (strrchr(DIR_SEPARATOR_STR __FILE__, DIR_SEPARATOR) + 1)
+#endif
 
 #include <utility>
 #if __OHOS__
@@ -42,7 +56,7 @@
 #else
 #define SHERPA_ONNX_LOGE(...)                        \
   do {                                               \
-    fprintf(stderr, "%s:%s:%d ", __FILE__, __func__, \
+    fprintf(stderr, "%s:%s:%d ", __FILENAME__, __func__, \
             static_cast<int>(__LINE__));             \
     fprintf(stderr, ##__VA_ARGS__);                  \
     fprintf(stderr, "\n");                           \
