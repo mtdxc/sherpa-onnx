@@ -5,7 +5,7 @@ const demoapp = {
     currentText: null,
     disabled: false,
     elapsedTime: null,
-    logs: [{ idx: 0, text: 'Happily here at ruzhila.cn.' }],
+    logs: [{ idx: 0, text: 'Happily here at ruzhila.cn.', my: true }],
     async init() {
     },
     async dotts() {
@@ -45,7 +45,7 @@ const demoapp = {
         this.asrWS = null;
         this.recording = false;
         if (this.currentText) {
-            this.logs.push({ idx: this.logs.length + 1, text: this.currentText });
+            this.logs.push({ idx: this.logs.length + 1, text: this.currentText, my: true });
         }
         this.currentText = null;
 
@@ -66,21 +66,40 @@ const demoapp = {
             this.logs = [];
         };
 
+        let audioContext = new AudioContext({ sampleRate: 16000 })
+        await audioContext.audioWorklet.addModule('./audio_process.js')
+        const playNode = new AudioWorkletNode(audioContext, 'play-audio-processor');
+        playNode.connect(audioContext.destination);
         ws.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            const { text, finished, idx } = data;
+            if (e.data instanceof Blob) {
+                e.data.arrayBuffer().then((arrayBuffer) => {
+                    const int16Array = new Int16Array(arrayBuffer);
+                    let float32Array = new Float32Array(int16Array.length);
+                    for (let i = 0; i < int16Array.length; i++) {
+                        float32Array[i] = int16Array[i] / 32768.;
+                    }
+                    playNode.port.postMessage({ message: 'audioData', audioData: float32Array });
+                });
+            } else {
+                const data = JSON.parse(e.data);
+                if (data.cmd == "tts") {
+                    const { text, idx } = data;
+                    this.logs.push({ text: text, idx: idx, my: false });
+                    return;
+                }
+                const { text, finished, idx } = data;
+                currentMessage = text;
+                this.currentText = text
 
-            currentMessage = text;
-            this.currentText = text
-
-            if (finished) {
-                this.logs.push({ text: currentMessage, idx: idx });
-                currentMessage = '';
-                this.currentText = null
+                if (finished) {
+                    this.logs.push({ text: currentMessage, idx: idx, my:true });
+                    currentMessage = '';
+                    this.currentText = null
+                }
             }
         };
 
-        let audioContext = new AudioContext({ sampleRate: 16000 })
+        audioContext = new AudioContext({ sampleRate: 16000 })
         await audioContext.audioWorklet.addModule('./audio_process.js')
 
         const recordNode = new AudioWorkletNode(audioContext, 'record-audio-processor');

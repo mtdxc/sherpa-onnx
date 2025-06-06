@@ -51,6 +51,10 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   // binary send buffer
   std::deque<std::string> tts_wavs_;
 
+  hv::Json llm_ctx_;
+  HttpRequestPtr llm_req_;
+  std::string llm_line_;
+
   int in_sample_rate = 16000;  // in sample rate for asr
   int out_sample_rate = 16000;  // out sample rate for tts
   int out_frame_size = 960; // 60ms
@@ -59,7 +63,7 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   std::vector<float> tts_cache_;
   std::unique_ptr<LinearResample> resample_;
   // 打断计数器
-  int tts_index_ = 0;
+  volatile int tts_index_ = 0;
   // 增加索引，并触发打断
   int addTtsIndex() { return ++tts_index_; }
   void addTtsWav(const float *data, int size, int samplerate);
@@ -75,7 +79,7 @@ struct WebsocketServerConfig {
   OfflineRecognizerConfig offline_config;
   OfflineTtsConfig tts_config;
   VadModelConfig vad_config;
-  std::string log_file = "./log.txt";
+  std::string llm_url, llm_model;
 
   void Register(sherpa_onnx::ParseOptions *po);
   void Validate() const;
@@ -102,6 +106,7 @@ class SherpaWebsocketServer : public WebSocketService {
   // do in worker loop
   void doAsr(connection_hdl hdl, const std::string &msg);
   void doTts(connection_hdl hdl, const std::string &msg);
+  void doLlm(connection_hdl hdl, const std::string &msg);
   // 增加tts文本输出
   void addTts(connection_hdl hdl, const std::string &msg);
   void onAsrLine(connection_hdl hdl, const std::string& line);
