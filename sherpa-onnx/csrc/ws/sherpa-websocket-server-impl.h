@@ -54,6 +54,7 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   hv::Json llm_ctx_;
   HttpRequestPtr llm_req_;
   std::string llm_line_;
+  unsigned int llm_s_ = 0, llm_f_ = 0;
 
   int in_sample_rate = 16000;  // in sample rate for asr
   int out_sample_rate = 16000;  // out sample rate for tts
@@ -80,7 +81,8 @@ struct WebsocketServerConfig {
   OfflineTtsConfig tts_config;
   VadModelConfig vad_config;
   std::string llm_url, llm_model;
-
+  int tts_frame_count = 30;
+  int tts_frame_size = 960;
   void Register(sherpa_onnx::ParseOptions *po);
   void Validate() const;
 };
@@ -106,6 +108,7 @@ class SherpaWebsocketServer : public WebSocketService {
   // do in worker loop
   void doAsr(connection_hdl hdl, const std::string &msg);
   void doTts(connection_hdl hdl, const std::string &msg);
+  void doTts(connection_hdl hdl);
   void doLlm(connection_hdl hdl, const std::string &msg);
   // 增加tts文本输出
   void addTts(connection_hdl hdl, const std::string &msg);
