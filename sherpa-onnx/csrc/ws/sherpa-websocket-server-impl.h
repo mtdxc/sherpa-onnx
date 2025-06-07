@@ -19,9 +19,7 @@
 #include "sherpa-onnx/csrc/online-recognizer.h"
 #include "sherpa-onnx/csrc/offline-recognizer.h"
 #include "sherpa-onnx/csrc/voice-activity-detector.h"
-#include "sherpa-onnx/csrc/online-stream.h"
 #include "sherpa-onnx/csrc/parse-options.h"
-#include "sherpa-onnx/csrc/tee-stream.h"
 #include "sherpa-onnx/csrc/resample.h"
 #include "hv/WebSocketChannel.h"  // NOLINT
 #include "hv/WebSocketServer.h"  // NOLINT
@@ -53,7 +51,7 @@ struct Connection : public std::enable_shared_from_this<Connection> {
 
   hv::Json llm_ctx_;
   HttpRequestPtr llm_req_;
-  std::string llm_line_;
+  std::wstring llm_line_;
   unsigned int llm_s_ = 0, llm_f_ = 0;
 
   int in_sample_rate = 16000;  // in sample rate for asr
@@ -64,9 +62,9 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   std::vector<float> tts_cache_;
   std::unique_ptr<LinearResample> resample_;
   // 打断计数器
-  volatile int tts_index_ = 0;
+  volatile int req_index_ = 0;
   // 增加索引，并触发打断
-  int addTtsIndex() { return ++tts_index_; }
+  int addReqIndex() { return ++req_index_; }
   void addTtsWav(const float *data, int size, int samplerate);
   void addTtsFrame(const float *data, int size);
 
@@ -111,7 +109,7 @@ class SherpaWebsocketServer : public WebSocketService {
   void doTts(connection_hdl hdl);
   void doLlm(connection_hdl hdl, const std::string &msg);
   // 增加tts文本输出
-  void addTts(connection_hdl hdl, const std::string &msg);
+  void addTts(connection_hdl hdl, const std::string &msg, bool done = true);
   void onAsrLine(connection_hdl hdl, const std::string& line);
  private:
   // 发送tts语音帧
