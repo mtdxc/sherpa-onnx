@@ -4,9 +4,9 @@
 
 #include "sherpa-websocket-server-impl.h"
 #include "sherpa-onnx/csrc/text-utils.h"
-#include <vector>
 #include "sherpa-onnx/csrc/file-utils.h"
 #include "sherpa-onnx/csrc/log.h"
+#include <vector>
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 #include "hv/requests.h"
@@ -32,7 +32,7 @@ shine_t mp3EncodeOpen(int samplerate, int channel, int bitrate) {
   return shine_initialise(&config);
 }
 void WebsocketServerConfig::Register(sherpa_onnx::ParseOptions *po) {
-  online_config.Register(po);
+  //online_config.Register(po);
   offline_config.Register(po);
   tts_config.Register(po);
   vad_config.Register(po);
@@ -44,7 +44,7 @@ void WebsocketServerConfig::Register(sherpa_onnx::ParseOptions *po) {
 
 void WebsocketServerConfig::Validate() const {  
   online_config.Validate();
-  //offline_config.Validate();
+  offline_config.Validate();
   tts_config.Validate();
   vad_config.Validate();
 }
@@ -52,13 +52,16 @@ void WebsocketServerConfig::Validate() const {
 SherpaWebsocketServer::SherpaWebsocketServer(hv::EventLoopThreadPool* io_work,
     const WebsocketServerConfig &config)
     : config_(config), io_work_(io_work) {
-  if (config.online_config.Validate()) {
-    this->asr_online_ = std::make_unique<OnlineRecognizer>(config.online_config);
-  }
-  if (config.offline_config.Validate()) {
+  if (config.offline_config.Validate() && config_.vad_config.Validate()) {
+    hlogi("use offiline modle %s", config.offline_config.ToString().c_str());
     this->asr_offline_ = std::make_unique<OfflineRecognizer>(config.offline_config);
   }
+  else if (config.online_config.Validate()) {
+    hlogi("use online modle %s", config.online_config.ToString().c_str());
+    this->asr_online_ = std::make_unique<OnlineRecognizer>(config.online_config);
+  }
   if (config.tts_config.Validate()) {
+    hlogi("use tts modle %s", config.tts_config.ToString().c_str());
     this->tts_ = std::make_unique<OfflineTts>(config.tts_config);
   }
 
@@ -123,7 +126,7 @@ void SherpaWebsocketServer::OnMessage(connection_hdl hdl, const std::string &pay
           hv::Json root = hv::Json::parse(payload);
           std::string cmd = root["cmd"];
           if (cmd == "abort") {
-            c->addTtsIndex();
+            c->addReqIndex();
           } else if (cmd == "tts") {
             addTts(hdl, root["msg"].get<std::string>());
           } else if (cmd == "llm") {
@@ -227,15 +230,14 @@ void SherpaWebsocketServer::doAsr(connection_hdl hdl, const std::string &payload
   }
 }
 
-static std::wstring split = L"。!！?？\n";
 void SherpaWebsocketServer::onAsrLine(connection_hdl hdl, const std::string& msg) {
   auto c = hdl->getContextPtr<Connection>();
-  if (msg.empty()) {
+  if (hv::trim(msg).empty()) {
     return ;
   }
-  hlogi("onAsrLine %s", msg.c_str());
   // 会触发打断
-  int idx = c->addTtsIndex();
+  int idx = c->addReqIndex();
+  hlogi("onAsrLine %d %s", idx, msg.c_str());
   // 发送tts信息
   hv::Json j;
   j["cmd"] = "stt";
@@ -246,11 +248,18 @@ void SherpaWebsocketServer::onAsrLine(connection_hdl hdl, const std::string& msg
   hdl->send(j.dump(), WS_OPCODE_TEXT);
 
   // 打断TTS请求
-  c->tts_lines_.clear();
-  c->tts_line_.clear();
+  if(c->tts_lines_.size() > 0) {
+    hlogi("clear %d tts lines", c->tts_lines_.size());
+    c->tts_lines_.clear();
+  }
+  if (c->tts_line_.length()) {
+    hlogi("cancel cur tts %s", c->tts_line_.c_str());
+    c->tts_line_.clear();
+  }
 
   // 打断llm请求
   if (c->llm_req_) {
+    hlogi("cancel llm request");
     c->llm_req_->Cancel();
     c->llm_req_ = nullptr;
     c->llm_s_ = c->llm_f_ = 0;
@@ -282,7 +291,8 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
   c->llm_req_ = req;
   c->llm_s_ = gettick_ms();
   c->llm_f_ = 0;
-  int idx = c->tts_index_;
+  int idx = c->req_index_;
+  hlogi("llm %d> start with prompt: %s", idx, msg.c_str());
   std::shared_ptr<bool> bstream = std::make_shared<bool>(false);
   req->http_cb = [req, bstream, hdl, c, idx, this](
                      HttpMessage *resp, http_parser_state state,
@@ -292,7 +302,8 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
         *bstream = true;
       }
     } else if (state == HP_BODY) {
-      if (!hdl->isConnected() || c->tts_index_ != idx) {
+      if (!hdl->isConnected() || c->req_index_ != idx) {
+        hlogi("llm %d> break %d", idx, c->req_index_);
         req->Cancel();
         return;
       }
@@ -311,19 +322,8 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
             }
 
             std::string text = j["response"];
-            c->llm_line_.append(text);
             // @todo 转到 hdl的线程中执行 addTts
-            if (j["done"] || c->llm_line_.length() > 120) {
-              addTts(hdl, c->llm_line_);
-              c->llm_line_.clear();
-            } else {
-              std::wstring w = ToWideString(c->llm_line_);
-              int pos = w.find_last_of(split);
-              if (pos != -1) {
-                addTts(hdl, ToString(w.substr(0, pos + 1)));
-                c->llm_line_ = ToString(w.substr(pos + 1));
-              }
-            }
+            addTts(hdl, text, j["done"]);
           } catch (const std::exception &e) {
             // fprintf(stderr, "JSON parse error: %s\n", e.what());
           }
@@ -350,29 +350,17 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
       }
     }
   };
-  requests::async(req, nullptr);
-}
-
-void SplitStringToVector(const std::string &in, const wchar_t *delim,
-                         bool omit_empty_strings,
-                         std::list<std::string> *out) {
-  std::wstring full = ToWideString(in);
-  size_t start = 0, found = 0, end = full.size();
-  //out->clear();
-  while (found != -1) {
-    found = full.find_first_of(delim, start);
-    // start != end condition is for when the delimiter is at the end
-    if (!omit_empty_strings || (found != start && start != end)) {
-      auto str = ToString(full.substr(start, found - start + 1));
-      str = hv::trim(str);
-      if (str.length())
-        out->push_back(str);
+  requests::async(req, [c, idx, req](const HttpResponsePtr& resp){
+    if (c->llm_req_ == req) {
+      c->llm_req_ = nullptr;
+      hlogi("llm %d> done, code %d, it tooks %d ms",
+            idx, resp->status_code, gettick_ms() - c->llm_s_);
+      c->llm_s_ = c->llm_f_ = 0;
     }
-    start = found + 1;
-  }
+  });
 }
 
-void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg) {
+void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg, bool done) {
   auto c = hdl->getContextPtr<Connection>();
   if (c->tts_lines_.empty() && !c->tts_id_) {
     if (c->fmt == eByte && !c->mp3_enc_) {
@@ -382,14 +370,34 @@ void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg) {
     c->tts_id_ = hv::setInterval(c->out_frame_size * 1000 / c->out_sample_rate,
                         [=](hv::TimerID tId) { sendTtsFrame(hdl); });
   }
-
-  hlogi("addTts %s", msg.c_str());
   if (!c->llm_f_ && c->llm_s_) {
     c->llm_f_ = gettick_ms();
-    hlogi("it tooks %d ms to got first llm resp", c->llm_f_ - c->llm_s_);
+    hlogi("llm %d> got first resp %s after %d ms", c->req_index_, msg.c_str(), c->llm_f_ - c->llm_s_);
   }
+
+  c->llm_line_ += ToWideString(msg);
+
+  static std::wstring delim = L"。!！?？\n";
   // 加入断句处理
-  SplitStringToVector(msg, split.c_str(), true, &c->tts_lines_);
+  while (c->llm_line_.length()) {
+    size_t pos = c->llm_line_.find_first_of(delim);
+    if (pos == -1) {
+      break;
+    }
+    auto str = ToString(c->llm_line_.substr(0, pos+1));
+    if (hv::trim(str).length()) {
+      c->tts_lines_.push_back(str);
+    }
+    c->llm_line_ = c->llm_line_.substr(pos + 1);
+  }
+
+  if (c->llm_line_.length() && done) {
+    auto str = ToString(c->llm_line_);
+    if (hv::trim(str).length()) {
+      c->tts_lines_.push_back(str);
+    }
+    c->llm_line_.clear();
+  }
   //c->tts_lines_.push_back(msg);
   doTts(hdl);
 }
@@ -417,29 +425,44 @@ void SherpaWebsocketServer::doTts(connection_hdl hdl) {
 
 void SherpaWebsocketServer::doTts(connection_hdl hdl, const std::string &msg) {
   auto c = hdl->getContextPtr<Connection>();
-  c->tts_line_ = msg;
-  int index = c->tts_index_;
+  int index = c->req_index_;
   hv::Json j;
   j["cmd"] = "tts";
   j["text"] = msg;
   j["idx"] = index;
   hdl->send(j.dump());
 
-  hlogi("doTts %s", msg.c_str());
+  static std::string skip_tts = "<>{}";
+  auto val = hv::trim(msg);
+  if (val.empty()) {
+    return ;
+  } else if(skip_tts.find(*val.begin()) != std::string::npos 
+    && skip_tts.find(*val.rbegin()) != std::string::npos) {
+    hlogw("skip tts %s", val.c_str());
+    return ;
+  }
+  hlogi("tts %d> start %s", index, msg.c_str());
+  c->tts_line_ = msg;
+
   unsigned int f = 0, s = gettick_ms();
   int samplerate = tts_->SampleRate();
   auto res = tts_->Generate(msg, 0, 1.0f,
-      [hdl, c, index, &f, samplerate](const float *samples, int32_t n, float progress) {
-        if (!f) f = gettick_ms();
-        if (hdl->isClosed()) return 0; ///< 连接断开
-        if (c->tts_index_ != index) return 0; /// 打断
+      [hdl, c, index, &f, s, samplerate](const float *samples, int32_t n, float progress) {
+        if (!f) {
+          f = gettick_ms();
+          hlogi("tts %d> got first %d samples after %d ms, progress %f", index, n, f - s, progress);
+        }
+        if (hdl->isClosed() || c->req_index_ != index) {
+          hlogi("tts %d> break for %d", index, c->req_index_);
+          return 0; /// 打断
+        }
         //printf("%d %f\n", n, progress);
         c->addTtsWav(samples, n, samplerate);
         return 1;
       });
   if (c->tts_line_ == msg) {
     int delta = gettick_ms() - s;
-    hlogi("%d text generate %5.2fs audio, it tooks %d, %d ms", msg.length(),
+    hlogi("tts %d> %d text generate %5.2fs audio, tooks %d, %d ms", index, msg.length(),
           res.samples.size() * 1.0f / res.sample_rate, f - s, delta);
     c->tts_line_.clear();
   }
