@@ -78,7 +78,8 @@ struct WebsocketServerConfig {
   OfflineRecognizerConfig offline_config;
   OfflineTtsConfig tts_config;
   VadModelConfig vad_config;
-  std::string llm_url, llm_model;
+  std::string llm_url, llm_model, llm_key;
+  std::string llm_type;
   int tts_frame_count = 30;
   int tts_frame_size = 960;
   void Register(sherpa_onnx::ParseOptions *po);

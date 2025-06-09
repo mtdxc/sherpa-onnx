@@ -482,7 +482,7 @@ void ParseOptions::ReadConfigFile(const std::string &filename) {
       PrintUsage(true);
       SHERPA_ONNX_LOGE("Invalid option %s in config file %s: line %d",
                        line.c_str(), filename.c_str(), line_number);
-      exit(-1);
+      //exit(-1);
     }
   }
 }
