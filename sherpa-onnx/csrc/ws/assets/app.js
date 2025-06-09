@@ -1,5 +1,6 @@
 const demoapp = {
     text: '讲个冷笑话吧，要很好笑的那种。',
+    llm_input: 'hello world',
     recording: false,
     asrWS: null,
     currentText: null,
@@ -7,6 +8,13 @@ const demoapp = {
     elapsedTime: null,
     logs: [{ idx: 0, text: 'Happily here at ruzhila.cn.', my: true }],
     async init() {
+    },
+    async talkWithLLM() {
+        if (this.asrWS && this.llm_input.length > 0) {
+            this.asrWS.send(JSON.stringify({ cmd: 'llm', msg: this.llm_input }));
+            this.logs.push({ idx: this.logs.length + 1, text: this.llm_input, my: true });
+        }
+        this.llm_input = '';
     },
     async dotts() {
         let audioContext = new AudioContext({ sampleRate: 16000 })

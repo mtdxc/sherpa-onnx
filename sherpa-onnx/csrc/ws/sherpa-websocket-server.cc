@@ -32,7 +32,7 @@ for a list of pre-trained models to download.
 
 int32_t main(int32_t argc, char *argv[]) {
 #ifdef _WIN32
-  //SetConsoleCP(65001);
+  SetConsoleCP(65001);
   SetConsoleOutputCP(65001);
 #endif  // _WIN32
 

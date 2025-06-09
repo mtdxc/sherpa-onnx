@@ -38,6 +38,8 @@ void WebsocketServerConfig::Register(sherpa_onnx::ParseOptions *po) {
   vad_config.Register(po);
   po->Register("llm-url", &llm_url, "llm url to request");
   po->Register("llm-model", &llm_model, "llm model to request");
+  po->Register("llm-key", &llm_key, "llm key to reqest");
+  po->Register("llm-type", &llm_type, "llm type");
   po->Register("tts-frame-count", &tts_frame_count, "tts frame count");
   po->Register("tts-frame-size", &tts_frame_size, "tts frame size");
 }
@@ -112,7 +114,6 @@ void SherpaWebsocketServer::OnOpen(connection_hdl hdl, const HttpRequestPtr &req
   }
   else {
     SHERPA_ONNX_LOGE("No ASR model is loaded!");
-    return;
   }
   ret->worker_ = io_work_->loop().get();
   hdl->setContextPtr(ret);
@@ -279,13 +280,19 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
 
   c->llm_ctx_["stream"] = true;
   c->llm_ctx_["model"] = config_.llm_model;
-  c->llm_ctx_["prompt"] = msg;
-
+  hv::Json m;
+  m["role"] = "user";
+  m["content"] = msg;
+  c->llm_ctx_["messages"].push_back(m);
+  //c->llm_ctx_["prompt"] = msg;
   HttpRequestPtr req = std::make_shared<HttpRequest>();
   req->url = config_.llm_url;
   req->method = HTTP_POST;
   req->timeout = -1;  // 不超时
   req->SetHeader("Content-Type", "application/json");
+  if (config_.llm_key.length()) {
+    req->SetHeader("Authorization", "Bearer " + config_.llm_key);
+  }
   req->SetBody(c->llm_ctx_.dump());
 
   c->llm_req_ = req;
@@ -313,17 +320,47 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
       if (!*bstream) {
         size_t ifind = std::string::npos;
         while ((ifind = resp->body.find("\n")) != std::string::npos) {
-          std::string msg = resp->body.substr(0, ifind + 1);
+          std::string msg = resp->body.substr(0, ifind);
+          // hlogi("%s", msg.c_str()); 
           try {
-            auto j = hv::Json::parse(msg);
-            if (j.contains("context")) {
-              auto c = hdl->getContextPtr<Connection>();
-              c->llm_ctx_["context"] = j["context"];
+            // glm 返回 data: {} 导致json解析失败!
+            auto pos = msg.find_first_of("{[");
+            if (pos != 0 && pos != std::string::npos) 
+              msg = msg.substr(pos);
+            auto j = nlohmann::json::parse(msg);
+
+            auto it = j.find("id");
+            if (it != j.end()) {
+              c->llm_ctx_["request_id"] = *it;
+            }
+            it = j.find("choices");
+            if (it != j.end()) {
+              // data: {"id":"202506091811223afeefd650714452","created":1749463882,"model":"glm-4-flash","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"}}]} 
+              // print(chunk.choices[0].delta)
+              for (auto ij : *it) {
+                std::string text = ij["delta"]["content"];
+                addTts(hdl, text, false);
+              }
             }
 
-            std::string text = j["response"];
-            // @todo 转到 hdl的线程中执行 addTts
-            addTts(hdl, text, j["done"]);
+            it = j.find("context");
+            if (it != j.end()) {
+              auto c = hdl->getContextPtr<Connection>();
+              c->llm_ctx_["context"] = *it;
+            }
+            it = j.find("response");
+            if (it != j.end()) {
+              std::string text = *it;
+              // @todo 转到 hdl的线程中执行 addTts
+              addTts(hdl, text, j["done"]);
+            }
+
+            it = j.find("message");
+            if (it != j.end()) {
+              // {"model":"qwen3:latest","created_at":"2025-06-09T11:31:39.224166Z","message":{"role":"assistant","content":"\u003cthink\u003e"},"done":false}
+              std::string text = it->at("content");
+              addTts(hdl, text, j["done"]);
+            }
           } catch (const std::exception &e) {
             // fprintf(stderr, "JSON parse error: %s\n", e.what());
           }
@@ -350,11 +387,12 @@ void SherpaWebsocketServer::doLlm(connection_hdl hdl, const std::string &msg) {
       }
     }
   };
-  requests::async(req, [c, idx, req](const HttpResponsePtr& resp){
-    if (c->llm_req_ == req) {
+  requests::async(req, [=](const HttpResponsePtr& resp){
+    if (c->req_index_ == idx) {
       c->llm_req_ = nullptr;
-      hlogi("llm %d> done, code %d, it tooks %d ms",
-            idx, resp->status_code, gettick_ms() - c->llm_s_);
+      addTts(hdl, "", true);
+      hlogi("llm %d> done, it tooks %d ms %d:%s", idx, gettick_ms() - c->llm_s_,
+            resp->status_code, resp->body.c_str());
       c->llm_s_ = c->llm_f_ = 0;
     }
   });
@@ -376,7 +414,7 @@ void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg, b
   }
 
   c->llm_line_ += ToWideString(msg);
-
+  static std::wstring space = L" \t\r\n";
   static std::wstring delim = L"。!！?？\n";
   // 加入断句处理
   while (c->llm_line_.length()) {
@@ -384,17 +422,16 @@ void SherpaWebsocketServer::addTts(connection_hdl hdl, const std::string &msg, b
     if (pos == -1) {
       break;
     }
-    auto str = ToString(c->llm_line_.substr(0, pos+1));
-    if (hv::trim(str).length()) {
-      c->tts_lines_.push_back(str);
+    auto str = c->llm_line_.substr(0, pos + 1);
+    if (-1 != str.find_first_not_of(space)) {
+      c->tts_lines_.push_back(ToString(str));
     }
     c->llm_line_ = c->llm_line_.substr(pos + 1);
   }
 
   if (c->llm_line_.length() && done) {
-    auto str = ToString(c->llm_line_);
-    if (hv::trim(str).length()) {
-      c->tts_lines_.push_back(str);
+    if (-1!= c->llm_line_.find_first_not_of(space)) {
+      c->tts_lines_.push_back(ToString(c->llm_line_));
     }
     c->llm_line_.clear();
   }
@@ -431,6 +468,8 @@ void SherpaWebsocketServer::doTts(connection_hdl hdl, const std::string &msg) {
   j["text"] = msg;
   j["idx"] = index;
   hdl->send(j.dump());
+
+  if (!tts_) return;
 
   static std::string skip_tts = "<>{}";
   auto val = hv::trim(msg);
