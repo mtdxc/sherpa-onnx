@@ -8,6 +8,7 @@
     <script src="//cdn.tailwindcss.com?plugins=forms"></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@latest/dist/tailwind.min.css" rel="stylesheet">
     <script src="//cdn.jsdelivr.net/npm/alpinejs@3.13.7/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.0/lame.min.js"></script>
     <script src="./app.js"></script>
     <title>voiceapi demo </title>
     <style>
@@ -108,7 +109,9 @@
                     <textarea x-model="text" class="round p-4 w-full h-[36rem] text-sm"
                         placeholder="Enter text here"></textarea>
                 </div>
-
+                <div>
+                    <audio id="audio" controls autoplay />
+                </div>
                 <div>
                     <button @click="dotts" :disabled="disabled"
                         class="button bg-gray-900 flex items-center gap-x-2 mt-6">
@@ -145,9 +148,13 @@
                     </template>
                 </div>
 
-                <input type="text" x-model="llm_input" class="round w-full text-sm resize-none"
-                    placeholder="type to talk with llm"
-                    @keydown.enter="talkWithLLM" />
+                <div class="flex items-center gap-x-2 mb-2">
+                    <input type="text" x-model="llm_input" class="round w-full text-sm resize-none"
+                        placeholder="type to talk with llm"
+                        @keydown.enter="talkWithLLM" />
+                    <input type="checkbox" id="useMp3" x-model="useMp3" class="checkbox">
+                    <label>MP3</label>
+                </div>
 
                 <template x-if="currentText">
                     <p x-text="`${currentText} …`" class="text-gray-800 mt-4 text-sm text-center"></p>

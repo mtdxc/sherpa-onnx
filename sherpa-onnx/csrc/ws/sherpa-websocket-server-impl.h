@@ -32,12 +32,13 @@ using connection_hdl = WebSocketChannelPtr;
 
 namespace sherpa_onnx {
 enum WavFmt { eFloat, eShort, eByte };
+using AutoLock = std::lock_guard<std::recursive_mutex>;
 struct Connection : public std::enable_shared_from_this<Connection> {
   hv::EventLoop *worker_ = nullptr;
   // asr handle
   std::shared_ptr<OnlineStream> son;
   std::unique_ptr<VoiceActivityDetector> vad_;
-
+  std::recursive_mutex mtx;
   // set it to true when InputFinished() is called
   bool eof = false;
   // tts text line for output
@@ -63,13 +64,20 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   std::unique_ptr<LinearResample> resample_;
   // 打断计数器
   volatile int req_index_ = 0;
+  bool sameReq(int idx) {
+    AutoLock lock(mtx);
+    return req_index_ == idx;
+  }
   // 增加索引，并触发打断
-  int addReqIndex() { return ++req_index_; }
+  int doBreak();
   void addTtsWav(const float *data, int size, int samplerate);
   void addTtsFrame(const float *data, int size);
-
+  void addTtsFrame(const std::string &frame);
+  bool popTtsFrame(std::string &frame);
   Connection() = default;
   ~Connection();
+  bool openCodec(int samplerate, int channel, int bitrate);
+  void closeCodec();
   void stop();
 };
 
@@ -106,14 +114,14 @@ class SherpaWebsocketServer : public WebSocketService {
   void OnMessage(connection_hdl hdl, const std::string& msg);
   // do in worker loop
   void doAsr(connection_hdl hdl, const std::string &msg);
-  void doTts(connection_hdl hdl, const std::string &msg);
+  void doTts(connection_hdl hdl, int idx);
   void doTts(connection_hdl hdl);
   void doLlm(connection_hdl hdl, const std::string &msg);
   // 增加tts文本输出
   void addTts(connection_hdl hdl, const std::string &msg, bool done = true);
   void onAsrLine(connection_hdl hdl, const std::string& line);
  private:
-  // 发送tts语音帧
+  // 发送tts语音和文本帧
   void sendTtsFrame(connection_hdl hdl);
 
   std::unique_ptr<OfflineTts> tts_;
