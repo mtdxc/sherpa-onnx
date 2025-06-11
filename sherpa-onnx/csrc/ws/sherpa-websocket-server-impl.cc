@@ -34,7 +34,7 @@ void Connection::closeCodec() {
   }
 }
 
-bool Connection::openCodec(int samplerate, int channel, int bitrate) {
+bool Connection::openCodec(int samplerate, int channel, int bitrate, int num) {
   shine_config_t config;
   shine_set_config_mpeg_defaults(&config.mpeg);
   config.wave.samplerate = samplerate;
@@ -53,7 +53,8 @@ bool Connection::openCodec(int samplerate, int channel, int bitrate) {
   closeCodec();
   mp3_enc_ = shine_initialise(&config);
   if (mp3_enc_) {
-    out_frame_size = shine_samples_per_pass(mp3_enc_);
+    out_frame_size = shine_samples_per_pass(mp3_enc_) * num;
+    hlogi("samplerate %d, frame_size %d, bitrate %d", samplerate, out_frame_size, bitrate);
     out_sample_rate = samplerate;
     return true;
   }
@@ -105,6 +106,8 @@ void WebsocketServerConfig::Register(sherpa_onnx::ParseOptions *po) {
   po->Register("llm-model", &llm_model, "llm model to request");
   po->Register("llm-key", &llm_key, "llm key to reqest");
   po->Register("llm-type", &llm_type, "llm type");
+  po->Register("mp3-bitrate", &mp3_bitrate, "mp3 bitrate(kbps)");
+  po->Register("mp3-frame-count", &mp3_frame_count, "mp3 frame count");
   po->Register("tts-frame-count", &tts_frame_count, "tts frame count");
   po->Register("tts-frame-size", &tts_frame_size, "tts frame size");
 }
@@ -184,7 +187,8 @@ void SherpaWebsocketServer::OnOpen(connection_hdl hdl, const HttpRequestPtr &req
   if (req->path.find("mp3") != std::string::npos) {
     ret->fmt = eByte;
     if (tts_) {
-      ret->openCodec(tts_->SampleRate(), 1, 64);
+      ret->openCodec(tts_->SampleRate(), 1, 
+          config_.mp3_bitrate, config_.mp3_frame_count);
     }
   }
 }
@@ -619,13 +623,18 @@ void Connection::addTtsFrame(const float *data, int size) {
         pcm[i] = data[i] * 32768;
       }
       int len = 0;
-      uint8_t* ret = shine_encode_buffer_interleaved(mp3_enc_, pcm.data(), &len);
-      if (ret && len) {
-        frame.append((const char*)ret, len);
-        addTtsFrame(frame);
-      } else {
-        hlogw("shine_encode_buffer_interleaved error %d", len);
+      int count = shine_samples_per_pass(mp3_enc_);
+      for (int i = 0; i < size; i+=count) {
+        if ((size - i) < count) break;
+        uint8_t *ret = shine_encode_buffer_interleaved(mp3_enc_, &pcm[i], &len);
+        if (ret && len) {
+          frame.append((const char *)ret, len);
+        } else {
+          hlogw("shine_encode_buffer_interleaved error %d", len);
+        }
       }
+      if (frame.size() > 1)
+        addTtsFrame(frame);
     }
     break;
     default:
