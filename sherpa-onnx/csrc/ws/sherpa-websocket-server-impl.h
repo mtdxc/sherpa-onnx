@@ -76,7 +76,7 @@ struct Connection : public std::enable_shared_from_this<Connection> {
   bool popTtsFrame(std::string &frame);
   Connection() = default;
   ~Connection();
-  bool openCodec(int samplerate, int channel, int bitrate);
+  bool openCodec(int samplerate, int channel, int bitrate, int num = 1);
   void closeCodec();
   void stop();
 };
@@ -88,6 +88,8 @@ struct WebsocketServerConfig {
   VadModelConfig vad_config;
   std::string llm_url, llm_model, llm_key;
   std::string llm_type;
+  int mp3_bitrate = 64; // 64kbps
+  int mp3_frame_count = 1;
   int tts_frame_count = 30;
   int tts_frame_size = 960;
   void Register(sherpa_onnx::ParseOptions *po);
