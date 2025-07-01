@@ -366,6 +366,7 @@ OfflineTts OfflineTts::Create(const OfflineTtsConfig &config) {
   c.model.kokoro.length_scale = config.model.kokoro.length_scale;
   c.model.kokoro.dict_dir = config.model.kokoro.dict_dir.c_str();
   c.model.kokoro.lexicon = config.model.kokoro.lexicon.c_str();
+  c.model.kokoro.lang = config.model.kokoro.lang.c_str();
 
   c.model.num_threads = config.model.num_threads;
   c.model.debug = config.model.debug;
@@ -853,5 +854,11 @@ std::string OfflinePunctuation::AddPunct(
   SherpaOfflinePunctuationFreeText(text);
   return result;
 }
+
+std::string GetVersionStr() { return SherpaOnnxGetVersionStr(); }
+
+std::string GetGitSha1() { return SherpaOnnxGetGitSha1(); }
+
+std::string GetGitDate() { return SherpaOnnxGetGitDate(); }
 
 }  // namespace sherpa_onnx::cxx

@@ -806,7 +806,8 @@ func sherpaOnnxOfflineTtsKokoroModelConfig(
   dataDir: String = "",
   lengthScale: Float = 1.0,
   dictDir: String = "",
-  lexicon: String = ""
+  lexicon: String = "",
+  lang: String = ""
 ) -> SherpaOnnxOfflineTtsKokoroModelConfig {
   return SherpaOnnxOfflineTtsKokoroModelConfig(
     model: toCPointer(model),
@@ -815,7 +816,8 @@ func sherpaOnnxOfflineTtsKokoroModelConfig(
     data_dir: toCPointer(dataDir),
     length_scale: lengthScale,
     dict_dir: toCPointer(dictDir),
-    lexicon: toCPointer(lexicon)
+    lexicon: toCPointer(lexicon),
+    lang: toCPointer(lang)
   )
 }
 
@@ -1445,4 +1447,16 @@ class SherpaOnnxOfflineSpeechDenoiserWrapper {
   var sampleRate: Int {
     return Int(SherpaOnnxOfflineSpeechDenoiserGetSampleRate(impl))
   }
+}
+
+func getSherpaOnnxVersion() -> String {
+  return String(cString: SherpaOnnxGetVersionStr())
+}
+
+func getSherpaOnnxGitSha1() -> String {
+  return String(cString: SherpaOnnxGetGitSha1())
+}
+
+func getSherpaOnnxGitDate() -> String {
+  return String(cString: SherpaOnnxGetGitDate())
 }
