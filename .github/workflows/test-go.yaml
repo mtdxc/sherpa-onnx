@@ -108,6 +108,7 @@ jobs:
             cp -v ../scripts/go/_internal/lib/x86_64-pc-windows-gnu/*.dll ../scripts/go/_internal/add-punctuation
             cp -v ../scripts/go/_internal/lib/x86_64-pc-windows-gnu/*.dll ../scripts/go/_internal/audio-tagging
             cp -v ../scripts/go/_internal/lib/x86_64-pc-windows-gnu/*.dll ../scripts/go/_internal/keyword-spotting-from-file/
+            cp -v ../scripts/go/_internal/lib/x86_64-pc-windows-gnu/*.dll ../scripts/go/_internal/non-streaming-canary-decode-files/
             cp -v ../scripts/go/_internal/lib/x86_64-pc-windows-gnu/*.dll ../scripts/go/_internal/non-streaming-decode-files/
             cp -v ../scripts/go/_internal/lib/x86_64-pc-windows-gnu/*.dll ../scripts/go/_internal/non-streaming-speaker-diarization/
             cp -v ../scripts/go/_internal/lib/x86_64-pc-windows-gnu/*.dll ../scripts/go/_internal/non-streaming-tts/
@@ -148,6 +149,19 @@ jobs:
           name: ${{ matrix.os }}-libs
           path: to-upload/
 
+      - name: Test non-streaming decoding files with NeMo Canary
+        shell: bash
+        run: |
+          cd scripts/go/_internal/non-streaming-canary-decode-files/
+          ls -lh
+          go mod tidy
+          cat go.mod
+          go build
+          ls -lh
+
+          ./run.sh
+          rm -rf sherpa-onnx-nemo-*
+
       - name: Test streaming decoding files
         shell: bash
         run: |
@@ -183,6 +197,10 @@ jobs:
           cat go.mod
           go build
           ls -lh
+
+          echo "Test Zipformer CTC"
+          ./run-zipformer-ctc.sh
+          rm -rf sherpa-onnx-zipformer-*
 
           echo "Test SenseVoice ctc"
           ./run-sense-voice-small-with-hr.sh

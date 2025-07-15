@@ -117,6 +117,13 @@ jobs:
           cd ./java-api-examples
           ./run-version-test.sh
 
+      - name:  Run java test (Nemo Canary)
+        shell: bash
+        run: |
+          cd ./java-api-examples
+          ./run-non-streaming-decode-file-nemo-canary.sh
+          rm -rf sherpa-onnx-nemo-*
+
       - name:  Run java test (Non-streaming SenseVoice with homophone replacer)
         shell: bash
         run: |
@@ -164,6 +171,9 @@ jobs:
         shell: bash
         run: |
           cd ./java-api-examples
+
+          ./run-non-streaming-decode-file-zipformer-ctc.sh
+          rm -rf sherpa-onnx-zipformer-ctc-*
 
           ./run-non-streaming-decode-file-dolphin-ctc.sh
           rm -rf sherpa-onnx-dolphin-*
@@ -227,11 +237,20 @@ jobs:
           rm *.wav
           rm -rf sherpa-onnx-*
 
-      - name:  Run java test (VAD remove silence)
+      - name:  Run java test (ten-vad remove silence)
         shell: bash
         run: |
           cd ./java-api-examples
-          ./run-vad-remove-slience.sh
+          ./run-ten-vad-remove-silence.sh
+          rm *.onnx
+          ls -lh *.wav
+          rm *.wav
+
+      - name:  Run java test (silero-vad remove silence)
+        shell: bash
+        run: |
+          cd ./java-api-examples
+          ./run-vad-remove-silence.sh
           rm *.onnx
           ls -lh *.wav
           rm *.wav

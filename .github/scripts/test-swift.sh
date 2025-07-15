@@ -9,6 +9,9 @@ ls -lh
 
 ./run-test-version.sh
 
+./run-zipformer-ctc-asr.sh
+rm -rf sherpa-onnx-zipformer-*
+
 ./run-decode-file-sense-voice-with-hr.sh
 rm -rf sherpa-onnx-sense-voice-*
 rm -rf dict lexicon.txt replace.fst test-hr.wav
@@ -68,7 +71,11 @@ curl -SL -O https://huggingface.co/csukuangfj/test-data/resolve/main/Obama.wav
 ls -lh
 popd
 
+./run-generate-subtitles-ten-vad.sh
+rm -rf *.onnx
+
 ./run-generate-subtitles.sh
+rm -rf *.onnx
 
 ls -lh /Users/fangjun/Desktop
 cat /Users/fangjun/Desktop/Obama.srt

@@ -14,7 +14,7 @@ project(sherpa-onnx)
 # Remember to update
 # ./CHANGELOG.md
 # ./new-release.sh
-set(SHERPA_ONNX_VERSION "1.12.3")
+set(SHERPA_ONNX_VERSION "1.12.6")
 
 # Disable warning about
 #
@@ -446,7 +446,7 @@ if(SHERPA_ONNX_ENABLE_SANITIZER)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flags}")
   endif()
 
-  set(CMAKE_EXECUTBLE_LINKER_FLAGS "${CMAKE_EXECUTBLE_LINKER_FLAGS} ${flags}")
+  set(CMAKE_EXECUTABLE_LINKER_FLAGS "${CMAKE_EXECUTABLE_LINKER_FLAGS} ${flags}")
 
   add_compile_options(-fno-omit-frame-pointer)
 endif()

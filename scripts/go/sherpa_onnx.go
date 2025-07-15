@@ -398,6 +398,10 @@ type OfflineNemoEncDecCtcModelConfig struct {
 	Model string // Path to the model, e.g., model.onnx or model.int8.onnx
 }
 
+type OfflineZipformerCtcModelConfig struct {
+	Model string // Path to the model, e.g., model.onnx or model.int8.onnx
+}
+
 type OfflineDolphinModelConfig struct {
 	Model string // Path to the model, e.g., model.onnx or model.int8.onnx
 }
@@ -408,6 +412,14 @@ type OfflineWhisperModelConfig struct {
 	Language     string
 	Task         string
 	TailPaddings int
+}
+
+type OfflineCanaryModelConfig struct {
+	Encoder string
+	Decoder string
+	SrcLang string
+	TgtLang string
+	UsePnc  int
 }
 
 type OfflineFireRedAsrModelConfig struct {
@@ -439,16 +451,18 @@ type OfflineLMConfig struct {
 }
 
 type OfflineModelConfig struct {
-	Transducer OfflineTransducerModelConfig
-	Paraformer OfflineParaformerModelConfig
-	NemoCTC    OfflineNemoEncDecCtcModelConfig
-	Whisper    OfflineWhisperModelConfig
-	Tdnn       OfflineTdnnModelConfig
-	SenseVoice OfflineSenseVoiceModelConfig
-	Moonshine  OfflineMoonshineModelConfig
-	FireRedAsr OfflineFireRedAsrModelConfig
-	Dolphin    OfflineDolphinModelConfig
-	Tokens     string // Path to tokens.txt
+	Transducer   OfflineTransducerModelConfig
+	Paraformer   OfflineParaformerModelConfig
+	NemoCTC      OfflineNemoEncDecCtcModelConfig
+	Whisper      OfflineWhisperModelConfig
+	Tdnn         OfflineTdnnModelConfig
+	SenseVoice   OfflineSenseVoiceModelConfig
+	Moonshine    OfflineMoonshineModelConfig
+	FireRedAsr   OfflineFireRedAsrModelConfig
+	Dolphin      OfflineDolphinModelConfig
+	ZipformerCtc OfflineZipformerCtcModelConfig
+	Canary       OfflineCanaryModelConfig
+	Tokens       string // Path to tokens.txt
 
 	// Number of threads to use for neural network computation
 	NumThreads int
@@ -540,6 +554,13 @@ func newCOfflineRecognizerConfig(config *OfflineRecognizerConfig) *C.struct_Sher
 	c.model_config.fire_red_asr.decoder = C.CString(config.ModelConfig.FireRedAsr.Decoder)
 
 	c.model_config.dolphin.model = C.CString(config.ModelConfig.Dolphin.Model)
+	c.model_config.zipformer_ctc.model = C.CString(config.ModelConfig.ZipformerCtc.Model)
+
+	c.model_config.canary.encoder = C.CString(config.ModelConfig.Canary.Encoder)
+	c.model_config.canary.decoder = C.CString(config.ModelConfig.Canary.Decoder)
+	c.model_config.canary.src_lang = C.CString(config.ModelConfig.Canary.SrcLang)
+	c.model_config.canary.tgt_lang = C.CString(config.ModelConfig.Canary.TgtLang)
+	c.model_config.canary.use_pnc = C.int(config.ModelConfig.Canary.UsePnc)
 
 	c.model_config.tokens = C.CString(config.ModelConfig.Tokens)
 
@@ -653,9 +674,40 @@ func freeCOfflineRecognizerConfig(c *C.struct_SherpaOnnxOfflineRecognizerConfig)
 		C.free(unsafe.Pointer(c.model_config.fire_red_asr.encoder))
 		c.model_config.fire_red_asr.encoder = nil
 	}
+
 	if c.model_config.fire_red_asr.decoder != nil {
 		C.free(unsafe.Pointer(c.model_config.fire_red_asr.decoder))
 		c.model_config.fire_red_asr.decoder = nil
+	}
+
+	if c.model_config.dolphin.model != nil {
+		C.free(unsafe.Pointer(c.model_config.dolphin.model))
+		c.model_config.dolphin.model = nil
+	}
+
+	if c.model_config.zipformer_ctc.model != nil {
+		C.free(unsafe.Pointer(c.model_config.zipformer_ctc.model))
+		c.model_config.zipformer_ctc.model = nil
+	}
+
+	if c.model_config.canary.encoder != nil {
+		C.free(unsafe.Pointer(c.model_config.canary.encoder))
+		c.model_config.canary.encoder = nil
+	}
+
+	if c.model_config.canary.decoder != nil {
+		C.free(unsafe.Pointer(c.model_config.canary.decoder))
+		c.model_config.canary.decoder = nil
+	}
+
+	if c.model_config.canary.src_lang != nil {
+		C.free(unsafe.Pointer(c.model_config.canary.src_lang))
+		c.model_config.canary.src_lang = nil
+	}
+
+	if c.model_config.canary.tgt_lang != nil {
+		C.free(unsafe.Pointer(c.model_config.canary.tgt_lang))
+		c.model_config.canary.tgt_lang = nil
 	}
 
 	if c.model_config.tokens != nil {
@@ -1090,8 +1142,18 @@ type SileroVadModelConfig struct {
 	MaxSpeechDuration  float32
 }
 
+type TenVadModelConfig struct {
+	Model              string
+	Threshold          float32
+	MinSilenceDuration float32
+	MinSpeechDuration  float32
+	WindowSize         int
+	MaxSpeechDuration  float32
+}
+
 type VadModelConfig struct {
 	SileroVad  SileroVadModelConfig
+	TenVad     TenVadModelConfig
 	SampleRate int
 	NumThreads int
 	Provider   string
@@ -1167,6 +1229,15 @@ func NewVoiceActivityDetector(config *VadModelConfig, bufferSizeInSeconds float3
 	c.silero_vad.min_speech_duration = C.float(config.SileroVad.MinSpeechDuration)
 	c.silero_vad.window_size = C.int(config.SileroVad.WindowSize)
 	c.silero_vad.max_speech_duration = C.float(config.SileroVad.MaxSpeechDuration)
+
+	c.ten_vad.model = C.CString(config.TenVad.Model)
+	defer C.free(unsafe.Pointer(c.ten_vad.model))
+
+	c.ten_vad.threshold = C.float(config.TenVad.Threshold)
+	c.ten_vad.min_silence_duration = C.float(config.TenVad.MinSilenceDuration)
+	c.ten_vad.min_speech_duration = C.float(config.TenVad.MinSpeechDuration)
+	c.ten_vad.window_size = C.int(config.TenVad.WindowSize)
+	c.ten_vad.max_speech_duration = C.float(config.TenVad.MaxSpeechDuration)
 
 	c.sample_rate = C.int(config.SampleRate)
 	c.num_threads = C.int(config.NumThreads)

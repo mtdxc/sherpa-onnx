@@ -4,7 +4,17 @@ set -ex
 
 cd dart-api-examples
 
+pushd vad
+./run-ten-vad.sh
+./run.sh
+rm *.onnx
+popd
+
 pushd non-streaming-asr
+
+echo '----------Zipformer CTC----------'
+./run-zipformer-ctc.sh
+rm -rf sherpa-onnx-*
 
 echo '----------SenseVoice----------'
 ./run-sense-voice-with-hr.sh
@@ -114,6 +124,10 @@ popd
 
 pushd vad-with-non-streaming-asr
 
+echo '----------Zipformer CTC----------'
+./run-zipformer-ctc.sh
+rm -rf sherpa-onnx-*
+
 echo '----------Dolphin CTC----------'
 ./run-dolphin-ctc.sh
 rm -rf sherpa-onnx-*
@@ -178,9 +192,3 @@ echo '----------streaming paraformer----------'
 rm -rf sherpa-onnx-*
 
 popd # streaming-asr
-
-pushd vad
-./run.sh
-rm *.onnx
-popd
-

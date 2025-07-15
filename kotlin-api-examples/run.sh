@@ -253,6 +253,13 @@ function testOfflineAsr() {
     rm sherpa-onnx-zipformer-multi-zh-hans-2023-9-2.tar.bz2
   fi
 
+  if [ ! -f ./sherpa-onnx-zipformer-ctc-zh-int8-2025-07-03/model.int8.onnx ]; then
+    curl -SL -O https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-zipformer-ctc-zh-int8-2025-07-03.tar.bz2
+
+    tar xvf sherpa-onnx-zipformer-ctc-zh-int8-2025-07-03.tar.bz2
+    rm sherpa-onnx-zipformer-ctc-zh-int8-2025-07-03.tar.bz2
+  fi
+
   out_filename=test_offline_asr.jar
   kotlinc-jvm -include-runtime -d $out_filename \
     test_offline_asr.kt \
@@ -448,8 +455,31 @@ function testOfflineSenseVoiceWithHr() {
   ls -lh $out_filename
   java -Djava.library.path=../build/lib -jar $out_filename
 }
-testVersion
 
+function testOfflineNeMoCanary() {
+  if [ ! -f sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8/encoder.int8.onnx ]; then
+    curl -SL -O https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8.tar.bz2
+    tar xvf sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8.tar.bz2
+    rm sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8.tar.bz2
+  fi
+
+  out_filename=test_offline_nemo_canary.jar
+  kotlinc-jvm -include-runtime -d $out_filename \
+    test_offline_nemo_canary.kt \
+    FeatureConfig.kt \
+    HomophoneReplacerConfig.kt \
+    OfflineRecognizer.kt \
+    OfflineStream.kt \
+    WaveReader.kt \
+    faked-asset-manager.kt
+
+  ls -lh $out_filename
+  java -Djava.library.path=../build/lib -jar $out_filename
+}
+
+# testVersion
+
+testOfflineNeMoCanary
 testOfflineSenseVoiceWithHr
 testOfflineSpeechDenoiser
 testOfflineSpeakerDiarization

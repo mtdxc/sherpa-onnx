@@ -8,6 +8,13 @@ log() {
   echo -e "$(date '+%Y-%m-%d %H:%M:%S') (${fname}:${BASH_LINENO[0]}:${FUNCNAME[1]}) $*"
 }
 
+log "test nemo canary"
+curl -SL -O https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8.tar.bz2
+tar xvf sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8.tar.bz2
+rm sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8.tar.bz2
+python3 ./python-api-examples/offline-nemo-canary-decode-files.py
+rm -rf sherpa-onnx-nemo-canary-180m-flash-en-es-de-fr-int8
+
 log "test spleeter"
 
 curl -SL -O https://github.com/k2-fsa/sherpa-onnx/releases/download/source-separation-models/sherpa-onnx-spleeter-2stems-fp16.tar.bz2
@@ -555,9 +562,39 @@ python3 ./python-api-examples/offline-decode-files.py \
   $repo/test_wavs/1.wav \
   $repo/test_wavs/8k.wav
 
+lm_repo_url=https://huggingface.co/ezerhouni/icefall-librispeech-rnn-lm
+log "Download pre-trained RNN-LM model from ${lm_repo_url}"
+GIT_LFS_SKIP_SMUDGE=1 git clone $lm_repo_url
+lm_repo=$(basename $lm_repo_url)
+pushd $lm_repo
+git lfs pull --include "exp/no-state-epoch-99-avg-1.onnx"
+popd
+
+bigram_repo_url=https://huggingface.co/vsd-vector/librispeech_bigram_sherpa-onnx-zipformer-large-en-2023-06-26
+log "Download bi-gram LM from ${bigram_repo_url}"
+GIT_LFS_SKIP_SMUDGE=1 git clone $bigram_repo_url
+bigramlm_repo=$(basename $bigram_repo_url)
+pushd $bigramlm_repo
+git lfs pull --include "2gram.fst"
+popd
+
+log "Perform offline decoding with RNN-LM and LODR"
+python3 ./python-api-examples/offline-decode-files.py \
+  --tokens=$repo/tokens.txt \
+  --encoder=$repo/encoder-epoch-99-avg-1.onnx \
+  --decoder=$repo/decoder-epoch-99-avg-1.onnx \
+  --joiner=$repo/joiner-epoch-99-avg-1.onnx \
+  --decoding-method=modified_beam_search \
+  --lm=$lm_repo/exp/no-state-epoch-99-avg-1.onnx \
+  --lodr-fst=$bigramlm_repo/2gram.fst \
+  --lodr-scale=-0.5 \
+  $repo/test_wavs/0.wav \
+  $repo/test_wavs/1.wav \
+  $repo/test_wavs/8k.wav
+
 python3 sherpa-onnx/python/tests/test_offline_recognizer.py --verbose
 
-rm -rf $repo
+rm -rf $repo $lm_repo $bigramlm_repo
 
 log "Test non-streaming paraformer models"
 

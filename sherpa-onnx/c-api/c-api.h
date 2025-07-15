@@ -71,6 +71,9 @@ SHERPA_ONNX_API const char *SherpaOnnxGetGitSha1();
 // Example return value: "Fri Jun 20 11:22:52 2025"
 SHERPA_ONNX_API const char *SherpaOnnxGetGitDate();
 
+// return 1 if the given file exists; return 0 otherwise
+SHERPA_ONNX_API int32_t SherpaOnnxFileExists(const char *filename);
+
 /// Please refer to
 /// https://k2-fsa.github.io/sherpa/onnx/pretrained_models/index.html
 /// to download pre-trained models. That is, you can find encoder-xxx.onnx
@@ -421,6 +424,14 @@ SHERPA_ONNX_API typedef struct SherpaOnnxOfflineWhisperModelConfig {
   int32_t tail_paddings;
 } SherpaOnnxOfflineWhisperModelConfig;
 
+SHERPA_ONNX_API typedef struct SherpaOnnxOfflineCanaryModelConfig {
+  const char *encoder;
+  const char *decoder;
+  const char *src_lang;
+  const char *tgt_lang;
+  int32_t use_pnc;
+} SherpaOnnxOfflineCanaryModelConfig;
+
 SHERPA_ONNX_API typedef struct SherpaOnnxOfflineFireRedAsrModelConfig {
   const char *encoder;
   const char *decoder;
@@ -452,6 +463,10 @@ SHERPA_ONNX_API typedef struct SherpaOnnxOfflineDolphinModelConfig {
   const char *model;
 } SherpaOnnxOfflineDolphinModelConfig;
 
+SHERPA_ONNX_API typedef struct SherpaOnnxOfflineZipformerCtcModelConfig {
+  const char *model;
+} SherpaOnnxOfflineZipformerCtcModelConfig;
+
 SHERPA_ONNX_API typedef struct SherpaOnnxOfflineModelConfig {
   SherpaOnnxOfflineTransducerModelConfig transducer;
   SherpaOnnxOfflineParaformerModelConfig paraformer;
@@ -475,6 +490,8 @@ SHERPA_ONNX_API typedef struct SherpaOnnxOfflineModelConfig {
   SherpaOnnxOfflineMoonshineModelConfig moonshine;
   SherpaOnnxOfflineFireRedAsrModelConfig fire_red_asr;
   SherpaOnnxOfflineDolphinModelConfig dolphin;
+  SherpaOnnxOfflineZipformerCtcModelConfig zipformer_ctc;
+  SherpaOnnxOfflineCanaryModelConfig canary;
 } SherpaOnnxOfflineModelConfig;
 
 SHERPA_ONNX_API typedef struct SherpaOnnxOfflineRecognizerConfig {
@@ -832,6 +849,30 @@ SHERPA_ONNX_API typedef struct SherpaOnnxSileroVadModelConfig {
   float max_speech_duration;
 } SherpaOnnxSileroVadModelConfig;
 
+SHERPA_ONNX_API typedef struct SherpaOnnxTenVadModelConfig {
+  // Path to the ten-vad model
+  const char *model;
+
+  // threshold to classify a segment as speech
+  //
+  // If the predicted probability of a segment is larger than this
+  // value, then it is classified as speech.
+  float threshold;
+
+  // in seconds
+  float min_silence_duration;
+
+  // in seconds
+  float min_speech_duration;
+
+  int32_t window_size;
+
+  // If a speech segment is longer than this value, then we increase
+  // the threshold to 0.9. After finishing detecting the segment,
+  // the threshold value is reset to its original value.
+  float max_speech_duration;
+} SherpaOnnxTenVadModelConfig;
+
 SHERPA_ONNX_API typedef struct SherpaOnnxVadModelConfig {
   SherpaOnnxSileroVadModelConfig silero_vad;
 
@@ -839,6 +880,7 @@ SHERPA_ONNX_API typedef struct SherpaOnnxVadModelConfig {
   int32_t num_threads;
   const char *provider;
   int32_t debug;
+  SherpaOnnxTenVadModelConfig ten_vad;
 } SherpaOnnxVadModelConfig;
 
 SHERPA_ONNX_API typedef struct SherpaOnnxCircularBuffer
@@ -1552,9 +1594,6 @@ SHERPA_ONNX_API int32_t SherpaOnnxLinearResamplerResampleGetInputSampleRate(
 
 SHERPA_ONNX_API int32_t SherpaOnnxLinearResamplerResampleGetOutputSampleRate(
     const SherpaOnnxLinearResampler *p);
-
-// Return 1 if the file exists; return 0 if the file does not exist.
-SHERPA_ONNX_API int32_t SherpaOnnxFileExists(const char *filename);
 
 // =========================================================================
 // For offline speaker diarization (i.e., non-streaming speaker diarization) 

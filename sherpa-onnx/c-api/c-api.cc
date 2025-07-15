@@ -484,6 +484,24 @@ static sherpa_onnx::OfflineRecognizerConfig GetOfflineRecognizerConfig(
   recognizer_config.model_config.dolphin.model =
       SHERPA_ONNX_OR(config->model_config.dolphin.model, "");
 
+  recognizer_config.model_config.zipformer_ctc.model =
+      SHERPA_ONNX_OR(config->model_config.zipformer_ctc.model, "");
+
+  recognizer_config.model_config.canary.encoder =
+      SHERPA_ONNX_OR(config->model_config.canary.encoder, "");
+
+  recognizer_config.model_config.canary.decoder =
+      SHERPA_ONNX_OR(config->model_config.canary.decoder, "");
+
+  recognizer_config.model_config.canary.src_lang =
+      SHERPA_ONNX_OR(config->model_config.canary.src_lang, "");
+
+  recognizer_config.model_config.canary.tgt_lang =
+      SHERPA_ONNX_OR(config->model_config.canary.tgt_lang, "");
+
+  recognizer_config.model_config.canary.use_pnc =
+      config->model_config.canary.use_pnc;
+
   recognizer_config.lm_config.model =
       SHERPA_ONNX_OR(config->lm_config.model, "");
   recognizer_config.lm_config.scale =
@@ -1014,6 +1032,21 @@ sherpa_onnx::VadModelConfig GetVadModelConfig(
 
   vad_config.silero_vad.max_speech_duration =
       SHERPA_ONNX_OR(config->silero_vad.max_speech_duration, 20);
+
+  vad_config.ten_vad.model = SHERPA_ONNX_OR(config->ten_vad.model, "");
+  vad_config.ten_vad.threshold = SHERPA_ONNX_OR(config->ten_vad.threshold, 0.5);
+
+  vad_config.ten_vad.min_silence_duration =
+      SHERPA_ONNX_OR(config->ten_vad.min_silence_duration, 0.5);
+
+  vad_config.ten_vad.min_speech_duration =
+      SHERPA_ONNX_OR(config->ten_vad.min_speech_duration, 0.25);
+
+  vad_config.ten_vad.window_size =
+      SHERPA_ONNX_OR(config->ten_vad.window_size, 256);
+
+  vad_config.ten_vad.max_speech_duration =
+      SHERPA_ONNX_OR(config->ten_vad.max_speech_duration, 20);
 
   vad_config.sample_rate = SHERPA_ONNX_OR(config->sample_rate, 16000);
   vad_config.num_threads = SHERPA_ONNX_OR(config->num_threads, 1);
